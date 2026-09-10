@@ -2,6 +2,10 @@ import Foundation
 
 /// The single error type surfaced above the networking layer.
 ///
+/// Deliberately carries **no user-facing copy**. Words are a presentation concern and
+/// live in `DesignSystem`, where the String Catalog is — putting them here would mean
+/// localizing from a target that has no business knowing how errors are shown.
+///
 /// Feature code never sees `URLError`, `DecodingError`, or a vendor SDK's error type.
 /// Mapping happens once, at the boundary, so presentation has one thing to switch on.
 public struct AppError: Error, Equatable, Sendable {
@@ -20,14 +24,11 @@ public struct AppError: Error, Equatable, Sendable {
     }
 
     public let kind: Kind
-    /// Shown to the user. Must already be localized.
-    public let message: String
-    /// Kept for logs only — never displayed.
+    /// Kept for logs only — never displayed, never localized.
     public let diagnostic: String?
 
-    public init(kind: Kind, message: String, diagnostic: String? = nil) {
+    public init(kind: Kind, diagnostic: String? = nil) {
         self.kind = kind
-        self.message = message
         self.diagnostic = diagnostic
     }
 
@@ -43,24 +44,15 @@ public struct AppError: Error, Equatable, Sendable {
             ]
             self.init(
                 kind: offline.contains(urlError.code) ? .offline : .unknown,
-                message: String(localized: "Something went wrong. Please try again."),
                 diagnostic: urlError.localizedDescription
             )
             return
         }
         if error is DecodingError {
-            self.init(
-                kind: .decoding,
-                message: String(localized: "Something went wrong. Please try again."),
-                diagnostic: String(describing: error)
-            )
+            self.init(kind: .decoding, diagnostic: String(describing: error))
             return
         }
-        self.init(
-            kind: .unknown,
-            message: String(localized: "Something went wrong. Please try again."),
-            diagnostic: String(describing: error)
-        )
+        self.init(kind: .unknown, diagnostic: String(describing: error))
     }
 
     /// Whether retrying the same request could plausibly succeed.

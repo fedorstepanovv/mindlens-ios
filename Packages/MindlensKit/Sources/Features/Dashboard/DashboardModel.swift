@@ -33,6 +33,9 @@ public final class DashboardModel {
         do {
             summaries = try await moods.summaries(around: selectedDate)
             error = nil
+        } catch is CancellationError {
+            // The view moved on. Not a failure, and showing a banner for it is the
+            // classic flash-of-error on navigation.
         } catch {
             self.error = AppError(error)
         }
@@ -43,6 +46,7 @@ public final class DashboardModel {
             try await moods.log(mood, on: selectedDate)
             analytics.record(AnalyticsEvent("daily_log_submitted"))
             await load()
+        } catch is CancellationError {
         } catch {
             self.error = AppError(error)
         }

@@ -13,36 +13,49 @@ public struct KeychainTokenStorage: TokenStorage {
         self.service = service
     }
 
+    /// Both tokens live in **one** Keychain item.
+    ///
+    /// Writing them as two items can tear: killed between the writes, the Keychain holds
+    /// a new access token beside the *old* refresh token, which the server has already
+    /// consumed. The next refresh then fails permanently and signs the user out — the
+    /// exact incident ADR 0004 exists to prevent, arriving through the storage layer.
     public func load() async throws -> TokenPair? {
-        guard let access = try read(account: "access"), let refresh = try read(account: "refresh") else {
-            return nil
-        }
-        return TokenPair(access: access, refresh: refresh)
+        guard let data = try read() else { return nil }
+        return try JSONDecoder().decode(StoredTokens.self, from: data).pair
     }
 
     public func save(_ tokens: TokenPair) async throws {
-        try write(tokens.access, account: "access")
-        try write(tokens.refresh, account: "refresh")
+        try write(try JSONEncoder().encode(StoredTokens(pair: tokens)))
     }
 
     public func clear() async throws {
-        for account in ["access", "refresh"] {
-            SecItemDelete(query(account: account) as CFDictionary)
+        SecItemDelete(query() as CFDictionary)
+    }
+
+    private struct StoredTokens: Codable {
+        let access: String
+        let refresh: String
+
+        init(pair: TokenPair) {
+            access = pair.access
+            refresh = pair.refresh
         }
+
+        var pair: TokenPair { TokenPair(access: access, refresh: refresh) }
     }
 
     // MARK: - Private
 
-    private func query(account: String) -> [String: Any] {
+    private func query() -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
+            kSecAttrAccount as String: "tokens",
         ]
     }
 
-    private func read(account: String) throws -> String? {
-        var lookup = query(account: account)
+    private func read() throws -> Data? {
+        var lookup = query()
         lookup[kSecReturnData as String] = true
         lookup[kSecMatchLimit as String] = kSecMatchLimitOne
 
@@ -51,8 +64,7 @@ public struct KeychainTokenStorage: TokenStorage {
 
         switch status {
         case errSecSuccess:
-            guard let data = item as? Data else { return nil }
-            return String(data: data, encoding: .utf8)
+            return item as? Data
         case errSecItemNotFound:
             return nil
         default:
@@ -60,9 +72,8 @@ public struct KeychainTokenStorage: TokenStorage {
         }
     }
 
-    private func write(_ value: String, account: String) throws {
-        let data = Data(value.utf8)
-        var attributes = query(account: account)
+    private func write(_ data: Data) throws {
+        var attributes = query()
         attributes[kSecValueData as String] = data
         attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
 

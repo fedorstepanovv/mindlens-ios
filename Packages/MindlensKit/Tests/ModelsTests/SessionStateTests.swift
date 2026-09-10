@@ -1,8 +1,6 @@
 import Models
 import Testing
 
-@testable import Authentication
-
 @Suite("Session state")
 struct SessionStateTests {
 

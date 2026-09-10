@@ -39,7 +39,7 @@ public actor TokenRefresher {
 
     private var cached: TokenPair?
     private var generation: UInt64 = 0
-    private var inFlight: Task<Credentials, Error>?
+    private var inFlight: Task<Credentials, any Error>?
     private var sessionIsOver = false
 
     public init(transport: any TokenRefreshing, storage: any TokenStorage) {
@@ -66,7 +66,7 @@ public actor TokenRefresher {
     ///   over, or the underlying transport error when the failure was transient.
     public func refreshed(after seenGeneration: UInt64) async throws -> Credentials {
         if sessionIsOver {
-            throw AppError(kind: .unauthenticated, message: Self.signedOutMessage)
+            throw AppError(kind: .unauthenticated)
         }
 
         // Someone already refreshed after this request went out. Its 401 is stale news —
@@ -79,7 +79,7 @@ public actor TokenRefresher {
             return try await inFlight.value
         }
 
-        let task = Task<Credentials, Error> { try await self.performRefresh() }
+        let task = Task<Credentials, any Error> { try await self.performRefresh() }
         inFlight = task
         defer { inFlight = nil }
         return try await task.value
@@ -94,6 +94,10 @@ public actor TokenRefresher {
     }
 
     public func signOut() async {
+        // Cancel first. A refresh that completes after this point must not write tokens
+        // back into storage for a user who has signed out.
+        inFlight?.cancel()
+        inFlight = nil
         cached = nil
         sessionIsOver = true
         generation &+= 1
@@ -107,6 +111,12 @@ public actor TokenRefresher {
 
         do {
             let fresh = try await transport.refresh(using: existing)
+
+            // The session may have ended while we were awaiting the network.
+            guard !sessionIsOver else {
+                throw AppError(kind: .unauthenticated)
+            }
+
             cached = fresh
             generation &+= 1
             try? await storage.save(fresh)
@@ -122,7 +132,7 @@ public actor TokenRefresher {
         }
         guard let cached else {
             sessionIsOver = true
-            throw AppError(kind: .unauthenticated, message: Self.signedOutMessage)
+            throw AppError(kind: .unauthenticated)
         }
         return cached.refresh
     }
@@ -145,12 +155,10 @@ public actor TokenRefresher {
             sessionIsOver = true
             generation &+= 1
             try? await storage.clear()
-            throw AppError(kind: .unauthenticated, message: Self.signedOutMessage)
+            throw AppError(kind: .unauthenticated)
         }
 
         // Transient. Keep the session; the caller may retry.
         throw appError
     }
-
-    private static let signedOutMessage = String(localized: "Your session has ended. Please sign in again.")
 }

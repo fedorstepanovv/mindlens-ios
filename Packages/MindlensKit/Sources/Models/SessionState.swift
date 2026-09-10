@@ -1,4 +1,4 @@
-import Models
+import Foundation
 
 /// Drives the gate at the `Scene` root.
 ///

@@ -97,4 +97,25 @@ nesting:
 trailing_whitespace:
   ignores_empty_lines: true
 
+# Guards for mistakes already made here — see docs/LESSONS.md.
+# A correction that stays prose gets relearned; a correction that fails the build does not.
+custom_rules:
+  localized_needs_bundle:
+    name: "Localized string without bundle"
+    regex: 'String\(localized:\s*"[^"]*"\s*\)'
+    message: "String(localized:) in a package target resolves against Bundle.main unless you pass bundle: .module — it will silently never localize."
+    severity: error
+
+  no_task_in_didset:
+    name: "Task spawned from a property setter"
+    regex: 'didSet\s*\{[^}]*Task\s*\{'
+    message: "Drive loads from .task(id:) in the view, not a property setter. didSet spawns uncancelled overlapping work. See docs/PATTERNS.md."
+    severity: error
+
+  no_impl_suffix:
+    name: "Impl suffix"
+    regex: '(class|struct|final class)\s+\w+Impl\b'
+    message: "Name the type for what it is (APIAuthRepository), not Impl. See CLAUDE.md."
+    severity: error
+
 reporter: "xcode"
