@@ -3,7 +3,7 @@
 **This is the living file. Every session updates it before ending.** The other docs in
 `docs/` are stable reference and change rarely; this one changes constantly.
 
-Last updated: 2026-09-10 · Foundation green, linting wired, API contract verified live
+Last updated: 2026-09-10 · Foundation green, linting wired, merge gate enforcing
 
 Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred (with reason) · 📦 shipped
 
@@ -18,6 +18,11 @@ are configured and clean.
 
 The API contract in `docs/API.md` has been **verified against production**, and the
 error-envelope fixtures are real captures rather than hand-written guesses.
+
+Nothing reaches `main` except through the pull request gate. It builds, tests, lints and
+checks doc links, then runs `Tools/swiftgate` — a deterministic rule catalogue plus an
+agentic review that reads the diff against these documents and against the Flutter app,
+and blocks anything that reads as translated Dart. See ADR 0006.
 
 No app UI exists yet: the Xcode project is still the stock template and does not yet
 reference the package.
@@ -42,7 +47,9 @@ Verify the app still builds before writing any feature code.
 | SPM package skeleton | ✅ | `Packages/MindlensKit` |
 | Xcode project wiring | ⬜ | **Next action.** iOS 18 target, Swift 6 mode, package reference |
 | SwiftLint + swift-format | ✅ | `.swiftlint.yml` + `.swift-format`; formatter owns formatting, linter owns correctness |
-| CI (GitHub Actions) | ⬜ | build · test · lint · doc-link check |
+| CI (GitHub Actions) | ✅ | `.github/workflows/pr-gate.yml` — build · test · lint · doc links · idiom review |
+| Merge gate (`Tools/swiftgate`) | ✅ | Go. 22 static rules + agentic review. Tuned in `.github/swiftgate.yml`. ADR 0006 |
+| Branch protection on `main` | 🟡 | Rule set; needs the `ANTHROPIC_API_KEY` and `FLUTTER_SPEC_TOKEN` secrets to go green |
 | `/feature-done` command | ✅ | |
 
 ## Features
@@ -67,6 +74,7 @@ See `docs/decisions/` for the full records. Summary:
 | 0003 | SwiftData for local persistence, behind repository protocols |
 | 0004 | Token refresh as an actor — single-flight, rotating-token aware |
 | 0005 | Third-party SDKs behind protocols; stub implementations are the default |
+| 0006 | An agentic merge gate, behind a deterministic pass, with a recorded override |
 
 ## Deliberately not doing
 
@@ -83,8 +91,12 @@ Recorded so nobody re-litigates these or mistakes them for oversights:
 
 - `mood_create_200.json` is the one **hand-written** fixture — it cannot be captured until
   auth works. Replace it during Stage 1. See the Fixtures README.
-- The app target is still the Xcode template, including the lowercase `mindlensApp` type
-  name that SwiftLint flags. Fix during project wiring.
+- The app target is still the Xcode template. The type is now `MindlensApp` (the
+  template's lowercase name failed SwiftLint), but the file is still `mindlensApp.swift`
+  — rename it during project wiring, when the pbxproj is being edited anyway.
+- The gate's agentic pass has never run against the live API. Its sandbox, tool schemas
+  and prompt assembly are unit-tested; the loop itself is proven on the first pull
+  request.
 
 ## Open questions
 
