@@ -75,6 +75,14 @@ struct MoodBadge: View {
 }
 ```
 
+### One model per *flow*, not per screen
+
+The mirror of the rule above. Sign-in, session restore and sign-out are one flow with one piece
+of state — which tree the scene root shows — so they are one `SessionModel`
+(`Packages/MindlensKit/Sources/Features/Authentication/SessionModel.swift`), not a `SignInModel`
+beside a `SessionModel` that have to stay in step. Splitting a flow to give each screen its own
+model is the same Cubit habit arriving from the other direction.
+
 ## Repositories
 
 Protocol at the seam, concrete type behind it. Named for what it *is*, never `...Impl`.

@@ -33,6 +33,7 @@ let package = Package(
         .library(name: "Persistence", targets: ["Persistence"]),
         .library(name: "DesignSystem", targets: ["DesignSystem"]),
         .library(name: "Analytics", targets: ["Analytics"]),
+        .library(name: "Authentication", targets: ["Authentication"]),
         .library(name: "Dashboard", targets: ["Dashboard"]),
     ],
     targets: [
@@ -52,6 +53,16 @@ let package = Package(
         // MARK: Features
         // Dependencies are listed per feature, not shared: a feature that doesn't touch
         // persistence shouldn't link it, and shouldn't rebuild when it changes.
+        // Authentication depends on neither Networking nor Persistence: the live repository
+        // lives in Networking (so the wire shape never leaves it) and reaches this target as
+        // `any AuthRepository` from Models. The feature links what it uses and nothing else.
+        .target(
+            name: "Authentication",
+            dependencies: ["Core", "Models", "DesignSystem", "Analytics"],
+            path: "Sources/Features/Authentication",
+            resources: [.process("Resources")],
+            swiftSettings: uiFacing
+        ),
         .target(
             name: "Dashboard",
             dependencies: ["Core", "Models", "DesignSystem", "Analytics"],
@@ -73,6 +84,11 @@ let package = Package(
         .testTarget(name: "CoreTests", dependencies: ["Core", "TestSupport"], swiftSettings: strict),
         .testTarget(name: "ModelsTests", dependencies: ["Models", "TestSupport"], swiftSettings: strict),
         .testTarget(name: "NetworkingTests", dependencies: ["Networking", "TestSupport"], swiftSettings: strict),
+        .testTarget(
+            name: "AuthenticationTests",
+            dependencies: ["Authentication", "TestSupport"],
+            swiftSettings: uiFacing
+        ),
         .testTarget(name: "DashboardTests", dependencies: ["Dashboard", "TestSupport"], swiftSettings: uiFacing),
     ]
 )

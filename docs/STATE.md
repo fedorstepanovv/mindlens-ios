@@ -9,66 +9,72 @@ equivalent file in the server repo reached 2,000 lines and stopped being readabl
 **Hard cap: 80 lines**, enforced by `Tools/check-doc-links.py`. If you are adding a line,
 consider which one you are removing.
 
-Last updated: 2026-09-10
+Last updated: 2026-09-11
 
 ---
 
 ## Where things stand
 
-`MindlensKit` builds under Swift 6 language mode against iOS 18 with strict concurrency,
-and so does the app target: `Config/Base.xcconfig` is the project's base configuration and
-the only definition of either setting (ADR 0009). **28 tests across 7 suites pass**;
-`swift test` runs from the CLI in ~2s. SwiftLint, swift-format and the doc-link check are
-clean over `Sources`, `Tests` and `mindlens`. The API contract is verified against
-production and the error fixtures are real captures.
+`MindlensKit` builds under Swift 6 language mode against iOS 18 with strict concurrency, and so
+does the app target: `Config/Base.xcconfig` is the project's base configuration and the only
+definition of those settings (ADR 0009). **75 tests across 17 suites pass** in ~2s from the CLI.
+SwiftLint, swift-format and the doc-link check are clean over `Sources`, `Tests` and `mindlens`.
 
-Nothing reaches `main` except through the PR gate: build, test, lint, doc links, then
-`Tools/swiftgate` — a deterministic rule catalogue plus an agentic review that blocks
-diffs reading as translated Dart. See ADR 0006.
+**The app has UI.** The scene root is a `switch` on `SessionState` — restoring, signed out,
+onboarding, signed in — and the signed-out branch is a real sign-in screen with the system
+Sign in with Apple button. Onboarding and signed-in are placeholders.
 
-No app UI exists. The Xcode project links the package but is otherwise the stock template.
+Sign-in is wired end to end **except the credential exchange**: the server verifies Firebase ID
+tokens, and no Firebase SDK is linked. `UnavailableIdentityProvider` throws at that seam, so
+tapping a button reaches the boundary and stops there (ADR 0010).
+
+Nothing reaches `main` except through the PR gate: build, test, lint, doc links, build settings,
+then `Tools/swiftgate`. See ADR 0006.
 
 ## Next action
 
-Stage 1: authentication. Nothing is in the way — build settings, the network layer and
-the merge gate are all in place.
+Link the Firebase Auth SDK in the app target and replace `UnavailableIdentityProvider`. That one
+file is all that stands between this build and a real session.
 
 ## Blocked on
 
-Nothing.
+A `GoogleService-Info.plist` from the Firebase project, and the Sign in with Apple capability.
+Neither is in the repo. Everything else in Stage 1 is done and tested.
 
 ## Stages
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Authentication | 🟡 | `TokenRefresher` + `APIClient` done and tested. No UI, no Firebase exchange. |
+| 1 | Authentication | 🟡 | Screen, gate, repository, refresh transport, Keychain device GUID — all tested. Firebase exchange unlinked. |
 | 2 | Dashboard + Quick Log | 🟡 | `DashboardModel` tested against a stub. No views, no real repository. |
 | 3 | Insights + Recaps | ⬜ | Swift Charts; polls for server-side generation. |
-| 4 | Onboarding + Paywall | ⬜ | Survey polling, RevenueCat. |
+| 4 | Onboarding + Paywall | ⬜ | Survey polling, RevenueCat. The Flutter login screen bundles this survey ahead of sign-in. |
 
 Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 
 ## Known gaps
 
-- **The local store is not observable.** `MoodRepository` returns a snapshot, so a
-  background sync writes where the UI is not looking. Stage 2 work — see `docs/ARCHITECTURE.md`.
-- **No persistence layer yet.** SwiftData models, the outbox, and ADR 0003's pre-ship
-  validation gate are all unstarted.
-- `mood_create_200.json` is the one hand-written fixture; it needs auth to capture for real.
-- No `PrivacyInfo.xcprivacy`, entitlements, or usage descriptions. Required before any
-  submission, and HealthKit alongside analytics needs a documented data boundary
-  (App Store Guideline 5.1.3).
+- **No captured fixture for `/auth/apple` or `/auth/refresh` 200** — both need a live Firebase
+  token, so decoding is tested against inline bodies labelled as constructed, and swiftgate's
+  fixture rule is waived in `AuthEndpoints.swift`. Same for `mood_create_200.json`. Re-capture.
+- **A restore that fails transiently parks in `restoring` with a retry.** Correct, but only
+  because no user row is cached — with persistence, a cold launch should paint from disk.
+- **The local store is not observable.** `MoodRepository` returns a snapshot. Stage 2.
+- **No persistence layer yet.** SwiftData models, the outbox, and ADR 0003's pre-ship validation
+  gate are unstarted. Keychain is the only storage in use.
+- No `PrivacyInfo.xcprivacy`, entitlements, or usage descriptions. Required before submission,
+  and HealthKit alongside analytics needs a documented data boundary (Guideline 5.1.3).
+- Analytics records events only — no `identify`, so no user is named to a vendor. Revisit with a
+  real SDK. The Google button is unbranded: no system button exists and their mark is not an asset.
 
 ## Deliberately not doing
 
-- **No feature parity with Flutter.** Health sync, Events, Tags, Reminders, Settings are
-  out of scope. Add only by explicit decision.
-- **No App Intents, Control, or widgets in v1** — ADR 0008. Highest-signal native feature,
-  deferred knowingly.
-- **No API versioning shim** — the backend has none; inventing one client-side would be
-  honouring a contract the server does not.
+- **No feature parity with Flutter.** Health sync, Events, Tags, Reminders, Settings are out of
+  scope. Add only by explicit decision.
+- **No App Intents, Control, or widgets in v1** — ADR 0008.
+- **No API versioning shim** — the backend has none.
 
 ## Open questions
 
-- Is the Firebase indirection intentional? The server verifies **Firebase** ID tokens, so
-  the iOS app must carry the Firebase SDK to sign in with Apple.
+- Is the Firebase indirection intentional? The server verifies **Firebase** ID tokens, so the
+  app must carry the SDK to sign in with Apple. ADR 0010 makes either answer cheap.

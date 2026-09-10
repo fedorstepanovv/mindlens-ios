@@ -29,6 +29,10 @@ check SWIFT_VERSION 6.0
 check IPHONEOS_DEPLOYMENT_TARGET 18.0
 check SWIFT_STRICT_CONCURRENCY complete
 check API_BASE_URL https://mindlens-api-production.up.railway.app
+# API_BASE_URL only reaches runtime through the generated Info.plist. Resolving to the right
+# value and never being forwarded looks identical from the xcconfig's side, and the app reads
+# this key at launch — so assert the forwarding too, not just the source.
+check INFOPLIST_KEY_MindlensAPIBaseURL https://mindlens-api-production.up.railway.app
 
 if [ "$status" -ne 0 ]; then
     cat <<'MSG'

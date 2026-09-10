@@ -106,6 +106,13 @@ custom_rules:
     message: "String(localized:) in a package target resolves against Bundle.main unless you pass bundle: .module — it will silently never localize."
     severity: error
 
+  text_needs_bundle:
+    name: "SwiftUI text literal without bundle"
+    included: ".*/Packages/MindlensKit/Sources/.*"
+    regex: 'Text\(\s*"[^"]*"\s*\)'
+    message: "Text(\"…\") in a package target resolves against Bundle.main and silently never localizes. Pass bundle: .module, or Text(verbatim:) if the string genuinely is not copy."
+    severity: error
+
   no_task_in_didset:
     name: "Task spawned from a property setter"
     regex: 'didSet\s*\{[^}]*Task\s*\{'

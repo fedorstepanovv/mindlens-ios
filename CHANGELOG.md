@@ -29,6 +29,30 @@ progress log this project has produced before.
 - `Tools/check-build-settings.sh` — resolves the app's build settings and asserts them,
   so a claim about Swift version or deployment target cannot outlive the setting.
 - ADR 0009 — build settings live in xcconfig, applied at the project level.
+- **Stage 1, authentication.** The app has UI: the scene root is a `switch` on
+  `SessionState`, and the signed-out branch is a sign-in screen built on the system
+  `SignInWithAppleButton`, with the legal notice as inline markdown links.
+- `SessionModel` — one `@Observable @MainActor` model for the whole session flow (restore,
+  sign in, sign out) rather than one per screen.
+- `APIAuthRepository` in `Networking`, so `AuthSessionDTO` never leaves that target;
+  `Features/Authentication` links neither `Networking` nor `Persistence` (ADR 0010).
+- `IdentityAuthenticating` in `Core` — the Firebase exchange behind a protocol we own, with
+  only plain `Sendable` values crossing it. `UnavailableIdentityProvider` in the app target
+  throws until the SDK is linked (ADR 0010).
+- `AuthTokenRefreshTransport` — the live `POST /auth/refresh`, deliberately not routed
+  through `APIClient`, which would recurse into refresh on a rejected refresh token.
+  `TokenRefresher` had no concrete transport before this.
+- `KeychainDeviceIdentity` — an install-persistent device GUID, an `actor` because
+  get-or-create is a read-modify-write, and preserved across sign-out so the next sign-in
+  reuses this device's session slot instead of evicting another device.
+- `KeychainItem`, extracted so the token pair and the device GUID share one set of
+  `SecItem` calls and one accessibility attribute.
+- `SystemDeviceModel` — `utsname.machine` with the simulator case handled: it reports
+  `arm64` there, one character under the API's six-character floor, which was a 400 on
+  every sign-in on every developer's machine.
+- `DateProvider.timeZone`, the seam that lets `TimeZone.current` be banned everywhere else.
+- ADR 0010 — identity exchange behind a protocol, auth repository in `Networking`.
+- The app's composition root (`AppContainer`) and session gate (`RootView`).
 
 ### Changed
 - Split the memory system so no file grows without bound: `docs/STATE.md` is now
@@ -49,6 +73,17 @@ progress log this project has produced before.
   resolved build settings before linting.
 - `Tools/check-doc-links.py` now also fails on a document living outside its one home.
 - Per-user Xcode scheme state is no longer tracked; `.gitignore` already listed it.
+- `docs/API.md` documents a **third** error-envelope shape: a 422 spells its status
+  `status`, not `statusCode`, and carries no `error` key. Captured live as
+  `error_invalid_token_422.json`. `data.user` is documented as the whole Prisma row.
+- `AppConfiguration` reads the API origin from the generated Info.plist, which
+  `INFOPLIST_KEY_MindlensAPIBaseURL` forwards from `API_BASE_URL` — one source of truth, and
+  `Tools/check-build-settings.sh` now asserts the forwarding as well as the setting.
+- `SwiftLint custom_rules.text_needs_bundle` — `SwiftUI.Text("…")` in a package target has
+  the same silent non-localization hole as `String(localized:)`.
+- `Tools/check-doc-links.py` skips `worktrees`. A git worktree is a different checkout, so
+  `.claude/worktrees/gate/docs` was being reported as a duplicate `docs/` tree — the check
+  failed for everyone whenever a gate run was in flight.
 
 ### Fixed
 Findings from an adversarial architecture review, 2026-09-10:

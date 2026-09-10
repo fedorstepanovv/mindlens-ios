@@ -13,7 +13,7 @@ does not need a human to remember it. This file holds only what still relies on 
 | Mistake | Guard |
 |---|---|
 | A doc held a second copy of security-critical code (`TokenRefresher`) and drifted to the broken version | `PATTERNS.md` links to real files instead of copying them; swiftgate rule candidate |
-| `String(localized:)` in a package target without `bundle: .module` — silently never localizes | SwiftLint `custom_rules.localized_needs_bundle`, severity error |
+| A localized string in a package target without `bundle: .module` — resolves against `Bundle.main` and silently never localizes. `SwiftUI.Text("…")` has the same hole as `String(localized:)` | SwiftLint `custom_rules.localized_needs_bundle` and `custom_rules.text_needs_bundle`, both severity error |
 | Driving a load from `didSet { Task { … } }` produced uncancelled overlapping loads | SwiftLint `custom_rules.no_task_in_didset`; `.task(id:)` documented in `PATTERNS.md` |
 | Static mutable state in a test helper broke under Swift Testing's parallel execution | `TESTING.md` "tests run in parallel" section; worked example kept there |
 | A protocol placed in `Networking` forced `Persistence` to depend on it — arrow backwards | The compiler, via SPM target boundaries (ADR 0002) |

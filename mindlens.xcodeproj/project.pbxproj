@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		9C2879B8305337F600D73F47 /* Analytics in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879B7305337F600D73F47 /* Analytics */; };
+		9C2879D2305337F600D73F47 /* Authentication in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879D1305337F600D73F47 /* Authentication */; };
+		9C2879D4305337F600D73F47 /* Networking in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879D3305337F600D73F47 /* Networking */; };
+		9C2879D6305337F600D73F47 /* Persistence in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879D5305337F600D73F47 /* Persistence */; };
 		9C2879BA305337F600D73F47 /* Core in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879B9305337F600D73F47 /* Core */; };
 		9C2879BC305337F600D73F47 /* Dashboard in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879BB305337F600D73F47 /* Dashboard */; };
 		9C2879BE305337F600D73F47 /* DesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879BD305337F600D73F47 /* DesignSystem */; };
@@ -67,6 +70,9 @@
 				9C2879BA305337F600D73F47 /* Core in Frameworks */,
 				9C2879BC305337F600D73F47 /* Dashboard in Frameworks */,
 				9C2879BE305337F600D73F47 /* DesignSystem in Frameworks */,
+				9C2879D2305337F600D73F47 /* Authentication in Frameworks */,
+				9C2879D4305337F600D73F47 /* Networking in Frameworks */,
+				9C2879D6305337F600D73F47 /* Persistence in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -142,6 +148,9 @@
 				9C2879BB305337F600D73F47 /* Dashboard */,
 				9C2879BD305337F600D73F47 /* DesignSystem */,
 				9C2879BF305337F600D73F47 /* Models */,
+				9C2879D1305337F600D73F47 /* Authentication */,
+				9C2879D3305337F600D73F47 /* Networking */,
+				9C2879D5305337F600D73F47 /* Persistence */,
 			);
 			productName = mindlens;
 			productReference = 9C76249D3052E320003B13B1 /* mindlens.app */;
@@ -430,6 +439,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_MindlensAPIBaseURL = "$(API_BASE_URL)";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -460,6 +470,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_MindlensAPIBaseURL = "$(API_BASE_URL)";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -623,6 +634,18 @@
 		9C2879BF305337F600D73F47 /* Models */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Models;
+		};
+		9C2879D1305337F600D73F47 /* Authentication */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Authentication;
+		};
+		9C2879D3305337F600D73F47 /* Networking */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Networking;
+		};
+		9C2879D5305337F600D73F47 /* Persistence */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Persistence;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

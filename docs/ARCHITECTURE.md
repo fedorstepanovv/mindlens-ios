@@ -26,8 +26,9 @@ mindlens (app target)
     ├── Features/      Added as they are built — see docs/STATE.md for what exists.
     │   ├── Authentication
     │   └── Dashboard
-    │       Each depends on: Core, Models, Networking, Persistence,
+    │       Each may depend on Core, Models, Networking, Persistence,
     │       DesignSystem, Analytics — and never on another Feature.
+    │       Each links only what it uses: Authentication needs four of the six.
     │
     └── TestSupport    Fakes, fixtures, builders. Depends on everything.
                        Never linked into the app.
@@ -59,6 +60,11 @@ Repository      Protocol. Owns the local store as source of truth; syncs from ne
 
 A service layer is added **only** when logic is genuinely shared across features, and
 then it lives in a shared target, not in a feature.
+
+A concrete repository lives wherever it can be reached without exporting a DTO. `APIAuthRepository`
+sits in `Networking` for that reason (ADR 0010): its collaborators are all `Core` protocols, so
+`AuthSessionDTO` never crosses a module boundary, and `Features/Authentication` links neither
+`Networking` nor `Persistence` — it takes `any AuthRepository` from `Models`.
 
 ## Data flow
 

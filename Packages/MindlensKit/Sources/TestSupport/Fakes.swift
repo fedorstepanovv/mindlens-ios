@@ -1,7 +1,9 @@
+import Analytics
 import Core
 import Foundation
 import Models
 import Networking
+import Synchronization
 
 public actor InMemoryTokenStorage: TokenStorage {
     private var tokens: TokenPair?
@@ -67,5 +69,29 @@ public struct StubMoodRepository: MoodRepository {
 
 public struct FixedDateProvider: DateProvider {
     public let now: Date
-    public init(_ now: Date) { self.now = now }
+    public let timeZone: TimeZone
+
+    /// The zone is explicit rather than ambient on purpose: a test that reads the machine's
+    /// timezone passes in Kyiv and fails in CI, and the timezone cases are the ones most worth
+    /// testing.
+    public init(_ now: Date, timeZone: TimeZone = TimeZone(identifier: "Europe/Kyiv") ?? .gmt) {
+        self.now = now
+        self.timeZone = timeZone
+    }
+}
+
+/// Records analytics events for assertions.
+///
+/// `Mutex`-backed rather than holding a plain `var`: Swift Testing runs suites in parallel
+/// in-process, and a shared counter is the mistake `docs/TESTING.md` records.
+public final class RecordingAnalytics: AnalyticsRecording {
+    private let storage = Mutex<[AnalyticsEvent]>([])
+
+    public init() {}
+
+    public func record(_ event: AnalyticsEvent) {
+        storage.withLock { $0.append(event) }
+    }
+
+    public var events: [AnalyticsEvent] { storage.withLock { $0 } }
 }
