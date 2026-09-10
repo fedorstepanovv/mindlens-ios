@@ -6,6 +6,14 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		9C2879B8305337F600D73F47 /* Analytics in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879B7305337F600D73F47 /* Analytics */; };
+		9C2879BA305337F600D73F47 /* Core in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879B9305337F600D73F47 /* Core */; };
+		9C2879BC305337F600D73F47 /* Dashboard in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879BB305337F600D73F47 /* Dashboard */; };
+		9C2879BE305337F600D73F47 /* DesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879BD305337F600D73F47 /* DesignSystem */; };
+		9C2879C0305337F600D73F47 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879BF305337F600D73F47 /* Models */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		9C7624AB3052E321003B13B1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +60,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9C2879C0305337F600D73F47 /* Models in Frameworks */,
+				9C2879B8305337F600D73F47 /* Analytics in Frameworks */,
+				9C2879BA305337F600D73F47 /* Core in Frameworks */,
+				9C2879BC305337F600D73F47 /* Dashboard in Frameworks */,
+				9C2879BE305337F600D73F47 /* DesignSystem in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +125,11 @@
 			);
 			name = mindlens;
 			packageProductDependencies = (
+				9C2879B7305337F600D73F47 /* Analytics */,
+				9C2879B9305337F600D73F47 /* Core */,
+				9C2879BB305337F600D73F47 /* Dashboard */,
+				9C2879BD305337F600D73F47 /* DesignSystem */,
+				9C2879BF305337F600D73F47 /* Models */,
 			);
 			productName = mindlens;
 			productReference = 9C76249D3052E320003B13B1 /* mindlens.app */;
@@ -195,6 +213,9 @@
 			);
 			mainGroup = 9C7624943052E320003B13B1;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9C2879B6305337F600D73F47 /* XCLocalSwiftPackageReference "Packages/MindlensKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9C76249E3052E320003B13B1 /* Products */;
 			projectDirPath = "";
@@ -570,6 +591,36 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		9C2879B6305337F600D73F47 /* XCLocalSwiftPackageReference "Packages/MindlensKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/MindlensKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9C2879B7305337F600D73F47 /* Analytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Analytics;
+		};
+		9C2879B9305337F600D73F47 /* Core */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Core;
+		};
+		9C2879BB305337F600D73F47 /* Dashboard */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Dashboard;
+		};
+		9C2879BD305337F600D73F47 /* DesignSystem */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DesignSystem;
+		};
+		9C2879BF305337F600D73F47 /* Models */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Models;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 9C7624953052E320003B13B1 /* Project object */;
 }
