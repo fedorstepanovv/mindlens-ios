@@ -8,7 +8,7 @@
 import SwiftUI
 
 @main
-struct mindlensApp: App {
+struct MindlensApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()

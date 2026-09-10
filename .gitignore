@@ -1,0 +1,26 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+.DS_Store
+
+# SPM
+.build/
+.swiftpm/
+
+# Secrets only. Config/Base.xcconfig is committed on purpose so a fresh clone builds —
+# the API base URL is a public endpoint, not a credential.
+Config/Secrets.xcconfig
+GoogleService-Info.plist
+.env
+
+# Claude Code local state. Worktrees are embedded git repos and must never be
+# committed; settings.local.json is per-machine. The shared .claude/settings.json,
+# commands/ and hooks/ ARE tracked deliberately.
+.claude/settings.local.json
+.claude/worktrees/
+
+# The merge gate checks the Flutter app out here during CI as a read-only spec.
+.swiftgate/

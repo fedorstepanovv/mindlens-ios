@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(xcodebuild:*)",
+      "Bash(xcrun:*)",
+      "Bash(swift build:*)",
+      "Bash(swift test:*)",
+      "Bash(swiftlint:*)",
+      "Bash(swift-format:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(python3 Tools/check-doc-links.py)",
+      "Read(//Users/fedir/Desktop/mindlens/app/mindlensapp/**)",
+      "Read(//Users/fedir/Desktop/mindlens/server/amfine/**)"
+    ],
+    "deny": [
+      "Read(./**/*.xcconfig)",
+      "Read(./**/.env)",
+      "Read(./**/GoogleService-Info.plist)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/state-doc-reminder.sh" }
+        ]
+      }
+    ]
+  }
+}
