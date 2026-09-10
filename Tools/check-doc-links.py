@@ -26,6 +26,11 @@ def is_checkable(token: str) -> bool:
 
 def main() -> int:
     problems: list[str] = []
+    # A `../` target points at a sibling repository — the Flutter app, the server. Those
+    # sit beside this one on a working machine, but not in a CI checkout or a git
+    # worktree. Report them, don't fail on them: their absence says nothing about
+    # whether this repo's docs are honest.
+    external: list[str] = []
     for md in sorted(ROOT.rglob("*.md")):
         if ".git" in md.parts or "DerivedData" in md.parts:
             continue
@@ -37,8 +42,16 @@ def main() -> int:
             targets += [t for t in BACKTICKED.findall(line) if is_checkable(t)]
             for target in targets:
                 # A path may be written relative to the repo root or to the file itself.
-                if not any((base / target).resolve().exists() for base in (ROOT, md.parent)):
-                    problems.append(f"{rel}:{line_no}  →  {target}")
+                if any((base / target).resolve().exists() for base in (ROOT, md.parent)):
+                    continue
+                entry = f"{rel}:{line_no}  →  {target}"
+                (external if target.startswith("../") else problems).append(entry)
+
+    if external:
+        print("Sibling-repo references not resolvable here (expected in CI and worktrees):\n")
+        for e in external:
+            print(f"  {e}")
+        print()
 
     if problems:
         print("Broken references in documentation:\n")

@@ -20,9 +20,10 @@ The API contract in `docs/API.md` has been **verified against production**, and 
 error-envelope fixtures are real captures rather than hand-written guesses.
 
 Nothing reaches `main` except through the pull request gate. It builds, tests, lints and
-checks doc links, then runs `Tools/swiftgate` — a deterministic rule catalogue plus an
-agentic review that reads the diff against these documents and against the Flutter app,
-and blocks anything that reads as translated Dart. See ADR 0006.
+checks doc links, then runs `Tools/swiftgate` — a deterministic rule catalogue plus a
+Claude Code review that reads the diff against these documents and against the Flutter
+app, and blocks anything that reads as translated Dart. The review bills to the Claude
+subscription, not the API. See ADR 0006 and 0010.
 
 No app UI exists yet: the Xcode project is still the stock template and does not yet
 reference the package.
@@ -48,8 +49,8 @@ Verify the app still builds before writing any feature code.
 | Xcode project wiring | ⬜ | **Next action.** iOS 18 target, Swift 6 mode, package reference |
 | SwiftLint + swift-format | ✅ | `.swiftlint.yml` + `.swift-format`; formatter owns formatting, linter owns correctness |
 | CI (GitHub Actions) | ✅ | `.github/workflows/pr-gate.yml` — build · test · lint · doc links · idiom review |
-| Merge gate (`Tools/swiftgate`) | ✅ | Go. 22 static rules + agentic review. Tuned in `.github/swiftgate.yml`. ADR 0006 |
-| Branch protection on `main` | 🟡 | Rule set; needs the `ANTHROPIC_API_KEY` and `FLUTTER_SPEC_TOKEN` secrets to go green |
+| Merge gate (`Tools/swiftgate`) | ✅ | Go. 22 deterministic rules + a Claude Code review. ADR 0006, amended by 0010 |
+| Branch protection on `main` | 🟡 | Needs the `CLAUDE_CODE_OAUTH_TOKEN` and `FLUTTER_SPEC_TOKEN` secrets, then one green run |
 | `/feature-done` command | ✅ | |
 
 ## Features
@@ -75,6 +76,7 @@ See `docs/decisions/` for the full records. Summary:
 | 0004 | Token refresh as an actor — single-flight, rotating-token aware |
 | 0005 | Third-party SDKs behind protocols; stub implementations are the default |
 | 0006 | An agentic merge gate, behind a deterministic pass, with a recorded override |
+| 0010 | The gate's review runs as Claude Code, billed to the subscription, not the API |
 
 ## Deliberately not doing
 
@@ -94,9 +96,9 @@ Recorded so nobody re-litigates these or mistakes them for oversights:
 - The app target is still the Xcode template. The type is now `MindlensApp` (the
   template's lowercase name failed SwiftLint), but the file is still `mindlensApp.swift`
   — rename it during project wiring, when the pbxproj is being edited anyway.
-- The gate's agentic pass has never run against the live API. Its sandbox, tool schemas
-  and prompt assembly are unit-tested; the loop itself is proven on the first pull
-  request.
+- The gate's review half has never run in CI. Both phases are unit-tested and the
+  hand-off between them is verified end to end locally; the Claude Code step itself is
+  proven on the first pull request.
 
 ## Open questions
 
