@@ -54,6 +54,11 @@ func newWorkspace(repo, flutter string) (*workspace, error) {
 // resolve maps a model-supplied path to a real one, rejecting traversal.
 func (w *workspace) resolve(p string) (string, error) {
 	p = strings.TrimPrefix(strings.TrimSpace(p), "./")
+	if filepath.IsAbs(p) {
+		// An absolute path would otherwise be silently reinterpreted as relative to
+		// the checkout, which reads as success and returns the wrong file.
+		return "", fmt.Errorf("path %q must be relative to the checkout", p)
+	}
 
 	root := w.repo
 	rel := p
