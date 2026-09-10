@@ -14,11 +14,8 @@ import (
 // Rules live in code; how hard each one bites lives here, so retuning the gate is a
 // one-line review rather than a Go change.
 type Config struct {
-	Model    string `yaml:"model"`
-	Effort   string `yaml:"effort"`
-	MaxTurns int    `yaml:"max_turns"`
-	// MaxDiffBytes caps what is pasted into the prompt. The model reads the rest with
-	// its tools rather than being handed a diff that dwarfs the rubric.
+	// MaxDiffBytes caps what is written into the reviewer's brief. It reads the rest
+	// from the checkout rather than being handed a diff that dwarfs the rubric.
 	MaxDiffBytes int `yaml:"max_diff_bytes"`
 	// OverrideLabel is the PR label that lets a human merge past a blocker, provided
 	// they also give a reason.
@@ -29,9 +26,6 @@ type Config struct {
 
 func defaultConfig() Config {
 	return Config{
-		Model:         "claude-opus-5",
-		Effort:        "high",
-		MaxTurns:      40,
 		MaxDiffBytes:  180_000,
 		OverrideLabel: "gate-override",
 	}

@@ -62,16 +62,13 @@ func (r *Result) Markdown(ctx ReportContext) string {
 		}
 	}
 
+	if r.Verdict != "" {
+		fmt.Fprintf(&b, "---\n\n> %s\n\n", strings.ReplaceAll(r.Verdict, "\n", "\n> "))
+	}
+
 	b.WriteString("---\n\n")
-	if r.Usage.Model != "" {
-		fmt.Fprintf(&b, "<sub>Reviewed by `%s` over %d turn(s) · %s in / %s out",
-			r.Usage.Model, r.Usage.Turns,
-			humanTokens(r.Usage.InputTokens), humanTokens(r.Usage.OutputTokens))
-		if r.Usage.CacheReadTokens > 0 {
-			fmt.Fprintf(&b, " · %s cached", humanTokens(r.Usage.CacheReadTokens))
-		}
-		fmt.Fprintf(&b, " · ~$%.2f", r.Usage.EstimatedUSDCents/100)
-		b.WriteString("</sub>\n")
+	if r.Reviewer != "" {
+		fmt.Fprintf(&b, "<sub>Judgement half reviewed by %s. Deterministic rules cost nothing.</sub>\n", r.Reviewer)
 	}
 	if ctx.RunURL != "" {
 		fmt.Fprintf(&b, "<sub>[Full log](%s) · re-run to re-review · a static rule can be waived in place with `// swiftgate:allow <rule> — reason`</sub>\n", ctx.RunURL)
@@ -117,10 +114,3 @@ func (r *Result) Summary() string {
 }
 
 func escapePipes(s string) string { return strings.ReplaceAll(s, "|", "\\|") }
-
-func humanTokens(n int64) string {
-	if n >= 1000 {
-		return fmt.Sprintf("%.1fk", float64(n)/1000)
-	}
-	return fmt.Sprintf("%d", n)
-}

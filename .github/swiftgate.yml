@@ -4,9 +4,8 @@
 # retunes them, so changing the gate's temperament is a one-line review rather than a Go
 # change. Valid severities: blocker, warning, nit, off.
 
-model: claude-opus-5
-effort: high
-max_turns: 40
+# The reviewer's model and turn limit live in .github/workflows/pr-gate.yml on the
+# claude_args line — they belong to the Claude Code step, not to this file.
 max_diff_bytes: 180000
 
 # Applying this label to a pull request lets a human merge past a blocker — but only

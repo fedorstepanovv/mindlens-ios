@@ -81,6 +81,8 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      # The Claude Code action wants this for its own GitHub auth handshake.
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -117,19 +119,42 @@ jobs:
         working-directory: Tools/swiftgate
         run: go build -o "$RUNNER_TEMP/swiftgate" .
 
-      - name: Review
+      # Deterministic rules run first and cost nothing. They also produce the brief the
+      # reviewer reads, and tell the next step whether a review is worth starting.
+      - name: Prepare the review
+        id: prep
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # GITHUB_SHA is the merge commit on a pull_request event, which has no
-          # permanent URL. Findings should link to the branch the author can edit.
+          SWIFTGATE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: '"$RUNNER_TEMP/swiftgate" prepare --pr ${{ github.event.pull_request.number }}'
+
+      # The judgement half. Running it as Claude Code rather than a direct API call is
+      # what bills it to the Claude subscription behind CLAUDE_CODE_OAUTH_TOKEN.
+      # continue-on-error so a rate limit becomes a reported blocker with a re-run
+      # instruction, rather than a bare red job with no explanation on the PR.
+      - name: Review for Flutter-isms
+        id: reviewer
+        if: steps.prep.outputs.review == 'true'
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: "/idiom-review"
+          claude_args: |
+            --max-turns 40
+            --model claude-opus-5
+            --allowedTools "Read,Grep,Glob,Write"
+
+      - name: Decide
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SWIFTGATE_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          "$RUNNER_TEMP/swiftgate" \
-            --pr ${{ github.event.pull_request.number }} \
+          "$RUNNER_TEMP/swiftgate" decide \
             --comment \
             --inline \
-            --verbose \
+            --reviewer-ran ${{ steps.reviewer.outcome == 'success' }} \
             --json "$RUNNER_TEMP/findings.json"
 
       - name: Upload findings
@@ -137,7 +162,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: swiftgate-findings
-          path: ${{ runner.temp }}/findings.json
+          path: |
+            ${{ runner.temp }}/findings.json
+            .swiftgate/run/
           if-no-files-found: ignore
 
   gate:
