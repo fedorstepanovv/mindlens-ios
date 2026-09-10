@@ -65,11 +65,17 @@ jobs:
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -quiet
 
+      - name: Verify the settings the documents claim
+        run: Tools/check-build-settings.sh "id=${{ steps.sim.outputs.udid }}"
+
       - name: Lint
         run: |
           set -euo pipefail
           swiftlint --strict
-          xcrun swift-format lint --recursive --strict Packages/MindlensKit/Sources mindlens
+          # Tests are linted too. Leaving them out is how a force-unwrap in
+          # TestSupport passed the gate while failing a local full-tree lint.
+          xcrun swift-format lint --recursive --strict \
+            Packages/MindlensKit/Sources Packages/MindlensKit/Tests mindlens
 
       - name: Check documentation links
         run: python3 Tools/check-doc-links.py
