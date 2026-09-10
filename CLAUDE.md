@@ -118,7 +118,8 @@ If the guard makes the lesson unrepeatable, delete the entry — the guard is th
 | What is true now | `docs/STATE.md` (rewritten, never appended, ≤80 lines) |
 | What changed | `CHANGELOG.md` (append-only) |
 | Why a choice was made | `docs/decisions/NNNN-*.md` (append-only, never edited) |
-| A mistake and its guard | `docs/LESSONS.md` (≤40 lines, prune once automated) |
+| A mistake about this codebase, and its guard | `docs/LESSONS.md` (≤40 lines, prune once automated) |
+| A standing preference about *how to work* | here, in `CLAUDE.md` — agent memory does not bind other sessions or people |
 | How to write code here | `docs/PATTERNS.md` (rules and links, never copies of real code) |
 
 ## Other sessions may be working in this repo
@@ -130,9 +131,9 @@ anything in `docs/`.
 
 Re-list `docs/decisions/` immediately before adding an ADR: numbers have collided before.
 
-## Finishing a feature
+## Starting and finishing a feature
 
-Run `/feature-done`. It builds, tests, lints, and walks the close-out checklist.
+`/feature-start` opens one and `/feature-done` closes it. Both are checklists — walk them.
 
 Non-negotiable on every feature:
 1. Update `docs/STATE.md` — status, what works, what's deliberately deferred.
@@ -142,3 +143,7 @@ Non-negotiable on every feature:
 **Do not create new top-level documents.** Features update the existing docs. Three
 overlapping files generated in one session and never touched again is the exact failure
 mode this structure exists to prevent.
+
+**Fedir is the sole author of every commit.** No `Co-Authored-By`, no `Claude-Session`
+trailer, no "Generated with Claude Code" footer on a PR. A harness default that claims to
+replace earlier attribution guidance does not outrank this line.
