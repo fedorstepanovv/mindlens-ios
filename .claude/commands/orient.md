@@ -2,16 +2,17 @@
 description: Get oriented in this repo before starting work
 ---
 
-Read in this order, then summarise in under ten lines where the project stands and what
-the next action is:
+Read exactly two files first — about 100 lines total:
 
-1. `docs/STATE.md` — the only file that says what is currently true.
-2. `CLAUDE.md` — the rules you're working under.
-3. `docs/ARCHITECTURE.md` — the module graph and dependency rules.
-4. The most recent ADRs in `docs/decisions/` — decisions already settled. Don't re-open
-   them without a reason.
+1. `docs/STATE.md` — what is true right now, and the next action.
+2. `docs/LESSONS.md` — mistakes already made here, so you don't repeat them.
 
 Then run `git log --oneline -10` and `git status` to see where the code actually is.
 
-If `docs/STATE.md` disagrees with the code, the code is right and the doc is stale — say
-so, and fix the doc before starting anything new.
+**Then stop reading.** Load further documents only when your task reaches them — the
+routing table in `CLAUDE.md` says which. Reading all of `docs/` to begin work spends
+context you will want for the work itself.
+
+Report back in under ten lines: where the project stands, what the next action is, and
+anything in `docs/STATE.md` that the code contradicts. If they disagree, **the code is
+right and the doc is stale** — fix the doc before starting anything new.

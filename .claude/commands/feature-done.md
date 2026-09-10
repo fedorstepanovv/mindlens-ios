@@ -2,37 +2,48 @@
 description: Close out a feature — verify it builds, tests, lints, and that the docs tell the truth
 ---
 
-Walk this checklist in order. Do not skip a step because it "looks fine" — run it.
+Walk this in order. Run each step; do not assume.
 
-## 1. It builds and passes
+## 1. It builds and the suite is green
 ```
-xcodebuild -scheme mindlens -destination 'platform=iOS Simulator,name=iPhone 17' build test
+cd Packages/MindlensKit && swift test          # fast loop, ~2s
+xcodebuild test -scheme mindlens -destination 'generic/platform=iOS Simulator'
+Tools/check-build-settings.sh                  # resolved settings, not claimed ones
 ```
-Report real output. If tests fail, say so with the failure — never summarise a red suite as done.
+Report real output. A failing suite is never summarised as done.
 
-## 2. The tests that must exist, exist
-Per `docs/TESTING.md`:
-- Every new ViewModel has tests covering loading, success, failure and empty.
-- Every new API response type has a decoding test against a **real captured** fixture.
-- Any bug fixed in this work has a regression test named for the bug.
+## 2. Lint and format
+```
+swift-format format --in-place --recursive Packages/MindlensKit/Sources Packages/MindlensKit/Tests mindlens
+swiftlint lint --quiet
+```
+Custom rules encode past mistakes (`docs/LESSONS.md`). If one fires, fix the code — do not
+disable the rule without a written reason.
 
-If any are missing, write them now rather than noting them as follow-ups.
+## 3. The tests that must exist, do
+Per `docs/TESTING.md`: every new ViewModel covered for loading/success/failure/empty;
+every new API response type has a decoding test against a **captured** fixture
+(`Tools/capture-fixtures.sh`); any bug fixed here has a regression test tagged `.bug(...)`.
 
-## 3. Design rules hold
-Per `docs/DESIGN.md`: Dynamic Type (no fixed sizes), VoiceOver labels on interactive
-elements, light and dark both correct, 44pt tap targets.
+## 4. Design rules hold
+Per `docs/DESIGN.md`: Dynamic Type, VoiceOver labels, light and dark, 44pt targets.
 
-## 4. Docs tell the truth
-- Update `docs/STATE.md` — status, what actually works, what is deliberately deferred and why.
-- Write an ADR in `docs/decisions/` if you made a call someone might later question.
-- Update `docs/API.md` if an endpoint's shape was touched.
-- **Do not create a new top-level document.** Update the existing ones.
+## 5. Write to the right file
+| What | Where |
+|---|---|
+| What is true now | `docs/STATE.md` — **rewrite**, don't append. ≤80 lines. |
+| What changed | `CHANGELOG.md` under `[Unreleased]` |
+| A choice worth questioning | new ADR — `ls docs/decisions/` first, numbers have collided |
+| A mistake you made | `docs/LESSONS.md`, **with its guard** |
 
-## 5. Nothing dangles
+Do not create a new top-level document.
+
+## 6. Nothing dangles
 ```
 python3 Tools/check-doc-links.py
 ```
+Checks every referenced path exists and every capped file is within budget.
 
-## 6. Commit
+## 7. Commit
 One commit, present-tense subject describing the behaviour change. Then report what
-landed, what you deliberately left out, and anything you're unsure about.
+landed, what you deliberately left out, and anything you are unsure about.

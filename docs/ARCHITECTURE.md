@@ -75,6 +75,16 @@ Views never wait on the network to render. A cold launch paints from disk immedi
 then revalidates. Writes to the core logging path (mood, tags, notes) go through the
 outbox so they survive being offline.
 
+**Not yet true.** Today `MoodRepository` returns a snapshot array, so a background sync
+writes to the store and the UI does not see it. Making the store genuinely observable is
+Stage 2 work and has two honest options — `@Query` in the view (live, but `@Model` types
+leak into features) or the store vending an `AsyncSequence` of domain values (layering
+intact, more work on SwiftData). Tracked in `docs/STATE.md`; do not let this paragraph
+read as done.
+
+A background revalidation must not swallow its error with `try?` — that contradicts the
+error rule below. Log it even when there is nothing to show.
+
 ## Dependency injection
 
 Constructor injection. The composition root in the app target builds the object graph

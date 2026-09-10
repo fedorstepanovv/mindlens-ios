@@ -2,8 +2,28 @@
 
 Native iOS rewrite of the Mindlens mood-tracking app. SwiftUI · Swift 6 · SPM · MVVM.
 
-**Read `docs/STATE.md` first.** It is the only file that tells you what is currently
-true. Everything else in `docs/` is stable reference and changes rarely.
+## Read this much, and no more
+
+**Always, before anything else — two files, ~100 lines total:**
+
+1. `docs/STATE.md` — what is true right now. Bounded to 80 lines.
+2. `docs/LESSONS.md` — mistakes already made here. Bounded to 40 lines.
+
+**Then only what your task touches:**
+
+| If you are… | Read |
+|---|---|
+| Writing any Swift | `docs/PATTERNS.md` |
+| Adding a target, module, or dependency | `docs/ARCHITECTURE.md` + ADR 0002 |
+| Building or changing any UI | `docs/DESIGN.md` |
+| Writing or changing tests | `docs/TESTING.md` |
+| Touching the network layer or a model | `docs/API.md` |
+| About to make a choice someone could question | `ls docs/decisions/` — check it isn't settled |
+| Looking for when or why something changed | `CHANGELOG.md`, then `git log` |
+
+**Do not read the whole `docs/` tree to start work.** It is reference, not a briefing.
+Reading it all costs context you need for the actual task, and the routing above exists
+so you don't have to.
 
 ---
 
@@ -82,6 +102,33 @@ Two things that will silently break if you forget them:
 - Refresh tokens are **single-use and rotating**, access tokens last 15 minutes.
   Concurrent 401s must be single-flighted through the refresh actor or users get
   logged out. This is a real incident that happened in production. See ADR 0004.
+
+## When you get something wrong
+
+Add a line to `docs/LESSONS.md` — **with the guard that will catch it next time.** A
+lesson without a mechanical guard gets relearned. Prefer, in order: a compiler-enforced
+boundary, a SwiftLint rule, a test, a swiftgate rule, a CI check. Prose is the last resort.
+
+If the guard makes the lesson unrepeatable, delete the entry — the guard is the memory.
+
+## Where things get written
+
+| Kind of thing | Goes in |
+|---|---|
+| What is true now | `docs/STATE.md` (rewritten, never appended, ≤80 lines) |
+| What changed | `CHANGELOG.md` (append-only) |
+| Why a choice was made | `docs/decisions/NNNN-*.md` (append-only, never edited) |
+| A mistake and its guard | `docs/LESSONS.md` (≤40 lines, prune once automated) |
+| How to write code here | `docs/PATTERNS.md` (rules and links, never copies of real code) |
+
+## Other sessions may be working in this repo
+
+More than one Claude session runs against this repository at once. Before overwriting a
+file you did not create in this session, check whether someone else has touched it —
+`git status`, or the file's mtime. Prefer targeted edits to whole-file rewrites for
+anything in `docs/`.
+
+Re-list `docs/decisions/` immediately before adding an ADR: numbers have collided before.
 
 ## Finishing a feature
 
