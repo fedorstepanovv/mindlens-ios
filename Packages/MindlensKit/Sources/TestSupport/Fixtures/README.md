@@ -8,6 +8,7 @@ what the server actually sends. There is no OpenAPI spec — these are the contr
 | `error_unauthorized_401.json` | ✅ live | Note there is **no** `error` key inside `error` — only `message` + `statusCode` |
 | `error_validation_400.json` | ✅ live | `message` is an **array** (class-validator) |
 | `error_unknown_field_400.json` | ✅ live | Proves the server rejects unknown request fields |
+| `error_invalid_token_422.json` | ✅ live | A rejected Firebase token. Carries **`status`**, not `statusCode`, and no `error` key — a third envelope shape |
 | `health_ready_200.json` | ✅ live | Success envelope |
 | `mood_create_200.json` | ⚠️ provisional | Hand-written from the Prisma schema. **Replace with a real capture once auth works.** |
 

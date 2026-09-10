@@ -24,9 +24,12 @@ def is_checkable(token: str) -> bool:
     # Skip globs, placeholders and prose.
     return not any(c in token for c in "*<>? ")
 
-# Directories whose markdown is not ours: build products, and the Flutter spec the
-# merge gate checks out.
-SKIP_DIRS = {".git", ".build", ".swiftpm", "DerivedData", ".swiftgate"}
+# Directories whose markdown is not ours: build products, and the checkouts the merge
+# gate makes. `worktrees` holds git worktrees (`.claude/worktrees/gate`) — a worktree is a
+# *different checkout* of this repo, so its docs/ tree is that branch's copy of these same
+# files, not a second home for ours. Without this the check fails for everyone the moment
+# a gate run is in flight, and a guard that fails when nothing is wrong gets switched off.
+SKIP_DIRS = {".git", ".build", ".swiftpm", "DerivedData", ".swiftgate", "worktrees"}
 
 # Files that must stay small, and why. A status file that grows without bound stops
 # being read, which is how the equivalent doc in the server repo reached 2,000 lines.

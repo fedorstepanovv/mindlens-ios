@@ -33,6 +33,10 @@ capture error_unauthorized_401  GET  /users        ""
 capture error_validation_400    POST /auth/apple   "" '{}'
 capture error_unknown_field_400 POST /auth/apple   "" \
   '{"idToken":"x","guid":"abcdef","deviceModel":"iPhone17","timezone":"Europe/Kyiv","surprise":1}'
+# A well-formed body with a bogus Firebase token: passes class-validator, fails
+# verification. This is the only auth failure the sign-in UI has to explain to a user.
+capture error_invalid_token_422  POST /auth/apple   "" \
+  '{"idToken":"not-a-real-firebase-token","guid":"11111111-2222-3333-4444-555555555555","deviceModel":"iPhone17,1","timezone":"Europe/Kyiv"}'
 
 if [ -n "${TOKEN:-}" ]; then
   echo "Authenticated:"
