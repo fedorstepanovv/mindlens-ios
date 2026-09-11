@@ -26,8 +26,9 @@ mindlens (app target)
     ├── Features/      Added as they are built — see docs/STATE.md for what exists.
     │   ├── Authentication
     │   └── Dashboard
-    │       Each depends on: Core, Models, Networking, Persistence,
+    │       Each may depend on Core, Models, Networking, Persistence,
     │       DesignSystem, Analytics — and never on another Feature.
+    │       Each links only what it uses: Authentication needs four of the six.
     │
     └── TestSupport    Fakes, fixtures, builders. Depends on everything.
                        Never linked into the app.
@@ -60,6 +61,11 @@ Repository      Protocol. Owns the local store as source of truth; syncs from ne
 A service layer is added **only** when logic is genuinely shared across features, and
 then it lives in a shared target, not in a feature.
 
+A concrete repository lives wherever it can be reached without exporting a DTO. `APIAuthRepository`
+sits in `Networking` for that reason (ADR 0010): its collaborators are all `Core` protocols, so
+`AuthSessionDTO` never crosses a module boundary, and `Features/Authentication` links neither
+`Networking` nor `Persistence` — it takes `any AuthRepository` from `Models`.
+
 ## Data flow
 
 The local store is the source of truth the UI observes. The network syncs into it.
@@ -74,6 +80,16 @@ View ──observes──> ViewModel ──> Repository ──> SwiftData store 
 Views never wait on the network to render. A cold launch paints from disk immediately,
 then revalidates. Writes to the core logging path (mood, tags, notes) go through the
 outbox so they survive being offline.
+
+**Not yet true.** Today `MoodRepository` returns a snapshot array, so a background sync
+writes to the store and the UI does not see it. Making the store genuinely observable is
+Stage 2 work and has two honest options — `@Query` in the view (live, but `@Model` types
+leak into features) or the store vending an `AsyncSequence` of domain values (layering
+intact, more work on SwiftData). Tracked in `docs/STATE.md`; do not let this paragraph
+read as done.
+
+A background revalidation must not swallow its error with `try?` — that contradicts the
+error rule below. Log it even when there is nothing to show.
 
 ## Dependency injection
 

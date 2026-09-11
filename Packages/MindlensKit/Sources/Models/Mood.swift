@@ -27,4 +27,9 @@ public struct MoodRecordDTO: Decodable, Sendable, Equatable {
     public let id: String
     public let mood: Int
     public let createdAt: Date
+
+    /// `nil` if the server ever sends a rating outside 1...4. Keeping the raw `Int` and
+    /// exposing the narrowed value separately means an out-of-range rating is visible
+    /// rather than either crashing or silently becoming a valid-looking mood.
+    public var rating: Mood? { Mood(rawValue: mood) }
 }

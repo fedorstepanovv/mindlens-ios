@@ -8,18 +8,28 @@ public struct Endpoint<Response: Decodable & Sendable>: Sendable {
     public var body: Data?
     public var requiresAuth: Bool
 
+    /// Whether a 401 should be met with a token refresh and one retry.
+    ///
+    /// Almost always yes. `POST /auth/logout` is the exception: refreshing to retry it rotates a
+    /// single-use token whose replacement is discarded a line later, and a refresh that fails
+    /// transiently would stop the logout being sent at all — leaving a live server session for
+    /// thirty days, which is the opposite of what the caller asked for.
+    public var retriesAfterRefresh: Bool
+
     public init(
         method: HTTPMethod,
         path: String,
         query: [URLQueryItem] = [],
         body: Data? = nil,
-        requiresAuth: Bool = true
+        requiresAuth: Bool = true,
+        retriesAfterRefresh: Bool = true
     ) {
         self.method = method
         self.path = path
         self.query = query
         self.body = body
         self.requiresAuth = requiresAuth
+        self.retriesAfterRefresh = retriesAfterRefresh
     }
 }
 
@@ -63,7 +73,10 @@ public extension JSONEncoder {
     /// The API rejects unknown fields outright, so encoding must stay exact.
     static var api: JSONEncoder {
         let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            var container = encoder.singleValueContainer()
+            try container.encode(Date.ISO8601FormatStyle(includingFractionalSeconds: true).format(date))
+        }
         return encoder
     }
 }
@@ -71,7 +84,30 @@ public extension JSONEncoder {
 public extension JSONDecoder {
     static var api: JSONDecoder {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom(Self.decodeTimestamp)
         return decoder
+    }
+
+    /// Timestamps from this API carry fractional seconds (`…:41.512Z`).
+    ///
+    /// `.iso8601` happens to accept them on the current toolchain but **discards the
+    /// milliseconds**, and its documented option set (`.withInternetDateTime`) does not
+    /// include fractional seconds at all. Parsing both forms explicitly means the
+    /// behaviour is ours rather than a Foundation implementation detail.
+    ///
+    /// Plain days and wall-clock times use `CalendarDate` and `TimeOfDay` instead — one
+    /// global strategy cannot serve three formats.
+    private static let decodeTimestamp: @Sendable (any Decoder) throws -> Date = { decoder in
+        let raw = try decoder.singleValueContainer().decode(String.self)
+
+        if let parsed = try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(raw) {
+            return parsed
+        }
+        if let parsed = try? Date.ISO8601FormatStyle(includingFractionalSeconds: false).parse(raw) {
+            return parsed
+        }
+        throw DecodingError.dataCorrupted(
+            .init(codingPath: decoder.codingPath, debugDescription: "Not an ISO-8601 timestamp: \(raw)")
+        )
     }
 }

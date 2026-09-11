@@ -61,10 +61,29 @@ struct TokenRefresherTests {
         #expect(second.tokens == fresh.tokens)
     }
 
+    @Test("signing out during a refresh does not re-persist tokens")
+    func signOutDuringRefreshDiscardsResult() async throws {
+        // Regression: signOut() cleared storage but left the in-flight refresh running.
+        // It completed afterwards and wrote live credentials back to the Keychain for a
+        // user who had just signed out.
+        let harness = makeHarness()
+        let generation = try #require(try await harness.refresher.credentials()?.generation)
+
+        async let refresh: Void = {
+            _ = try? await harness.refresher.refreshed(after: generation)
+        }()
+
+        await harness.refresher.signOut()
+        await refresh
+
+        #expect(try await harness.storage.load() == nil)
+        #expect(try await harness.refresher.credentials() == nil)
+    }
+
     @Test("a transient failure keeps the session alive")
     func transientFailureKeepsSession() async throws {
         let harness = makeHarness(
-            behaviour: .fail(AppError(kind: .server(status: 503), message: "upstream"))
+            behaviour: .fail(AppError(kind: .server(status: 503)))
         )
         let (refresher, storage) = (harness.refresher, harness.storage)
         let generation = try #require(try await refresher.credentials()?.generation)
@@ -81,7 +100,7 @@ struct TokenRefresherTests {
     @Test("the server rejecting the token ends the session", arguments: [400, 401, 403])
     func rejectedTokenEndsSession(status: Int) async throws {
         let harness = makeHarness(
-            behaviour: .fail(AppError(kind: .server(status: status), message: "rejected"))
+            behaviour: .fail(AppError(kind: .server(status: status)))
         )
         let (refresher, storage) = (harness.refresher, harness.storage)
         let generation = try #require(try await refresher.credentials()?.generation)

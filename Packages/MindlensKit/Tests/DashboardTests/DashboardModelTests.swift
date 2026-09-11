@@ -15,7 +15,7 @@ struct DashboardModelTests {
     @Test("surfaces an error when loading fails")
     func showsError() async {
         let model = DashboardModel(
-            moods: StubMoodRepository(error: AppError(kind: .offline, message: "offline")),
+            moods: StubMoodRepository(error: AppError(kind: .offline)),
             dates: FixedDateProvider(day)
         )
 
@@ -41,7 +41,7 @@ struct DashboardModelTests {
     @Test("is not left loading after a failure")
     func resetsLoadingFlag() async {
         let model = DashboardModel(
-            moods: StubMoodRepository(error: AppError(kind: .unknown, message: "boom")),
+            moods: StubMoodRepository(error: AppError(kind: .unknown)),
             dates: FixedDateProvider(day)
         )
 

@@ -1,4 +1,4 @@
-# ADR 0010 — The idiom review runs as Claude Code, billed to the subscription
+# ADR 0012 — The idiom review runs as Claude Code, billed to the subscription
 
 Date: 2026-09-11 · Status: Accepted · Amends ADR 0006
 
