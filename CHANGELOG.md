@@ -59,7 +59,8 @@ progress log this project has produced before.
   the next few steps with `entries` (entry points) / `files` / `ready` and inline status, and an append-only
   journal. Capped at 100 lines. `/feature-start` takes the first open step, `/feature-done`
   ticks it, and the stop hook accepts a feature-file update. `docs/features/auth.md` is the
-  first (ADR 0011).
+  first (ADR 0011). `Tools/check-doc-links.py` fails when a feature file has no stage row in
+  `docs/STATE.md`, or when the two disagree about its status.
 - The app's composition root (`AppContainer`) and session gate (`RootView`).
 - `#Preview` blocks on `SignInView` (signed out; dark at the largest accessibility size;
   signing in; the 422 error) and `RootView` (restoring; unreachable server; signed out; signed
