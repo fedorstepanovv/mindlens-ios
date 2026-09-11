@@ -31,8 +31,8 @@ Release is unasserted), lint, doc links, and `Tools/swiftgate` alongside. See AD
 
 ## Next action
 
-Link the Firebase Auth SDK in the app target and replace `UnavailableIdentityProvider`. That one
-file is all that stands between this build and a real session.
+`docs/features/auth.md`, step 3: link the Firebase Auth SDK and replace
+`UnavailableIdentityProvider`. That one file stands between this build and a real session.
 
 ## Blocked on
 
@@ -43,7 +43,7 @@ Neither is in the repo. Everything else in Stage 1 is done and tested.
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Authentication | 🟡 | Screen, gate, repository and refresh transport tested (79 tests). Firebase exchange unlinked; `Persistence` has no test target, so the Keychain paths are unexercised. |
+| 1 | Authentication | 🟡 | `docs/features/auth.md`. Screen, gate, repository, refresh transport tested. Firebase exchange unlinked. |
 | 2 | Dashboard + Quick Log | 🟡 | `DashboardModel` tested against a stub. No views, no real repository. |
 | 3 | Insights + Recaps | ⬜ | Swift Charts; polls for server-side generation. |
 | 4 | Onboarding + Paywall | ⬜ | Survey polling, RevenueCat. The Flutter login screen bundles this survey ahead of sign-in. |

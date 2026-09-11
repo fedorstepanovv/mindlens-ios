@@ -31,12 +31,14 @@ Per `docs/DESIGN.md`: Dynamic Type, VoiceOver labels, light and dark, 44pt targe
 ## 5. Write to the right file
 | What | Where |
 |---|---|
-| What is true now | `docs/STATE.md` — **rewrite**, don't append. ≤80 lines. |
+| The step you did, and what you learned | `docs/features/<name>.md` — tick the step, add the next one if it is now clear, **append** a journal line. ≤100 lines. |
+| What is true now | `docs/STATE.md` — **rewrite**, don't append. ≤80 lines. Only if the stage status moved. |
 | What changed | `CHANGELOG.md` under `[Unreleased]` |
 | A choice worth questioning | new ADR — `ls docs/decisions/` first, numbers have collided |
 | A mistake you made | `docs/LESSONS.md`, **with its guard** |
 
-Do not create a new top-level document.
+Do not create a new top-level document. A feature file is not one — it lives in
+`docs/features/`, one per feature, from the template.
 
 ## 6. Nothing dangles
 ```

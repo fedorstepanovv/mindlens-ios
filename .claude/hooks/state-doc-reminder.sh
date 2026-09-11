@@ -21,7 +21,9 @@ fi
 cd "$(dirname "$0")/../.." || exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 
-changed=$(git status --porcelain 2>/dev/null)
+# -uall lists the files inside an untracked directory, not the directory. Without it a
+# feature file created this session shows as `docs/features/` and never matches.
+changed=$(git status --porcelain -uall 2>/dev/null)
 # Strip the two status columns and their separator, leaving the path.
 paths=$(printf '%s\n' "$changed" | sed 's/^...//')
 
@@ -31,11 +33,13 @@ paths=$(printf '%s\n' "$changed" | sed 's/^...//')
 truth_changed=$(printf '%s\n' "$paths" \
   | grep -vE '^\.claude/' \
   | grep -E '\.(swift|xcconfig|pbxproj|py|sh)$|^\.github/workflows/.*\.ya?ml$' || true)
-state_changed=$(printf '%s\n' "$paths" | grep -E '^docs/STATE\.md$' || true)
+# Either file counts. docs/STATE.md is the ledger across features; docs/features/<name>.md
+# is the one feature's steps and journal. A change to the code should move at least one.
+state_changed=$(printf '%s\n' "$paths" | grep -E '^docs/(STATE\.md|features/[^/]+\.md)$' || true)
 
 if [ -n "$truth_changed" ] && [ -z "$state_changed" ]; then
-  echo "Code, build settings or a check changed but docs/STATE.md was not updated." >&2
-  echo "Update the ledger (status, what works, what's deferred) before finishing, or say why it doesn't apply." >&2
+  echo "Code, build settings or a check changed but neither docs/STATE.md nor a docs/features/ file was updated." >&2
+  echo "Tick the step and add a journal line in the feature file; update the ledger if the stage status moved. Or say why it doesn't apply." >&2
   exit 2
 fi
 

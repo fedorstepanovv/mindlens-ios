@@ -54,6 +54,12 @@ progress log this project has produced before.
   every sign-in on every developer's machine.
 - `DateProvider.timeZone`, the seam that lets `TimeZone.current` be banned everywhere else.
 - ADR 0010 — identity exchange behind a protocol, auth repository in `Networking`.
+- **One file per feature** — `docs/features/<name>.md` from `docs/features/0000-template.md`:
+  what the user can do and when it is done, decisions settled so they are not reinvented,
+  the next few steps with `entries` / `files` / `ready` and inline status, and an append-only
+  journal. Capped at 100 lines. `/feature-start` takes the first open step, `/feature-done`
+  ticks it, and the stop hook accepts a feature-file update. `docs/features/auth.md` is the
+  first (ADR 0011).
 - The app's composition root (`AppContainer`) and session gate (`RootView`).
 - `#Preview` blocks on `SignInView` (signed out; dark at the largest accessibility size;
   signing in; the 422 error) and `RootView` (restoring; unreachable server; signed out; signed

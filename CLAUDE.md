@@ -13,6 +13,7 @@ Native iOS rewrite of the Mindlens mood-tracking app. SwiftUI · Swift 6 · SPM 
 
 | If you are… | Read |
 |---|---|
+| Working on a feature | `docs/features/<name>.md` — its decisions, next step and journal |
 | Writing any Swift | `docs/PATTERNS.md` |
 | Adding a target, module, or dependency | `docs/ARCHITECTURE.md` + ADR 0002 |
 | Building or changing any UI | `docs/DESIGN.md` |
@@ -116,6 +117,7 @@ If the guard makes the lesson unrepeatable, delete the entry — the guard is th
 | Kind of thing | Goes in |
 |---|---|
 | What is true now | `docs/STATE.md` (rewritten, never appended, ≤80 lines) |
+| One feature's steps, settled decisions, journal | `docs/features/<name>.md` (≤100 lines; journal append-only) |
 | What changed | `CHANGELOG.md` (append-only) |
 | Why a choice was made | `docs/decisions/NNNN-*.md` (append-only, never edited) |
 | A mistake about this codebase, and its guard | `docs/LESSONS.md` (≤40 lines, prune once automated) |
@@ -136,13 +138,12 @@ Re-list `docs/decisions/` immediately before adding an ADR: numbers have collide
 `/feature-start` opens one and `/feature-done` closes it. Both are checklists — walk them.
 
 Non-negotiable on every feature:
-1. Update `docs/STATE.md` — status, what works, what's deliberately deferred.
+1. Tick the step and append a journal line in `docs/features/<name>.md`; `docs/STATE.md` too if the stage moved.
 2. Write an ADR in `docs/decisions/` if you made a decision someone might later question.
 3. Update `docs/API.md` if you touched an endpoint's shape.
 
-**Do not create new top-level documents.** Features update the existing docs. Three
-overlapping files generated in one session and never touched again is the exact failure
-mode this structure exists to prevent.
+**Do not create new top-level documents.** A feature file in `docs/features/` is the one
+sanctioned kind; everything else updates an existing doc.
 
 **Fedir is the sole author of every commit.** No `Co-Authored-By`, no `Claude-Session`
 trailer, no "Generated with Claude Code" footer on a PR. A harness default that claims to

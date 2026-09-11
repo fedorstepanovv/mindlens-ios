@@ -37,6 +37,10 @@ SIZE_CAPS = {
     "docs/STATE.md": 80,
     "docs/LESSONS.md": 40,
     "CLAUDE.md": 150,
+    # One per feature: capability, settled decisions, the next few steps, a short journal.
+    # The journal is append-only, so the cap is what forces its oldest lines out to git log
+    # instead of letting the file become the history it is meant to point at.
+    "docs/features/*.md": 100,
 }
 
 # Every document has exactly one home. A second copy is not a backup — it is a second
@@ -58,16 +62,17 @@ CANONICAL_HOME = {
 
 def check_sizes() -> list[str]:
     problems = []
-    for rel, cap in SIZE_CAPS.items():
-        path = ROOT / rel
-        if not path.exists():
-            continue
-        lines = len(path.read_text(encoding="utf-8").splitlines())
-        if lines > cap:
-            problems.append(
-                f"{rel} is {lines} lines, cap is {cap}. "
-                "Move what is no longer current to CHANGELOG.md, or prune."
-            )
+    for pattern, cap in SIZE_CAPS.items():
+        for path in sorted(ROOT.glob(pattern)):
+            rel = path.relative_to(ROOT).as_posix()
+            lines = len(path.read_text(encoding="utf-8").splitlines())
+            if lines > cap:
+                advice = (
+                    "Drop the oldest journal lines — they are in git log — or shrink done steps to one line."
+                    if rel.startswith("docs/features/")
+                    else "Move what is no longer current to CHANGELOG.md, or prune."
+                )
+                problems.append(f"{rel} is {lines} lines, cap is {cap}. {advice}")
     return problems
 
 
