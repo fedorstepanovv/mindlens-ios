@@ -40,31 +40,30 @@ account lands in onboarding; a returning one on the dashboard.
 
 1. ✅ Sign-in screen and session gate, verified in the simulator at both text sizes and appearances.
 2. ✅ `APIAuthRepository`, `AuthTokenRefreshTransport`, `KeychainDeviceIdentity`; 79 tests; gate launches the app.
-3. 🟡 **Link Firebase Auth and replace the stand-in**
-   entries:
-   - Add `GoogleService-Info.plist` to the app target and configure Firebase at launch.
-   - Add Firebase Auth by SPM to the **app target only** — no package target imports it.
-   - Implement `IdentityAuthenticating` in the app target: an `OAuthProvider` credential for
-     `apple.com` from the identity token and raw nonce → `signIn(with:)` → the ID token. A
-     user cancelling throws `CancellationError`. Delete `UnavailableIdentityProvider`.
-   - Enable the Sign in with Apple capability.
+3. 🟡 **Link Firebase Auth and replace the stand-in** — the SDK in the app target only, an
+   `OAuthProvider` credential for `apple.com` from the identity token and raw nonce, signed
+   in and exchanged for the ID token. A user cancelling throws `CancellationError`.
+   entries: `IdentityAuthenticating` in `Core` (the protocol to implement) ·
+   `UnavailableIdentityProvider` (what it replaces) · `AppContainer.init` (where it is
+   wired) · `SignInView.handleAppleCompletion` (where Apple's credential arrives) ·
+   `MindlensApp` (Firebase is configured at launch).
    files: `mindlens/AppContainer.swift`, `mindlens/mindlensApp.swift`, `mindlens.xcodeproj/project.pbxproj`,
-   FirebaseIdentityProvider.swift *(new)*, mindlens.entitlements *(new)*
+   FirebaseIdentityProvider.swift *(new)*, mindlens.entitlements *(new)*, GoogleService-Info.plist *(new)*
    ready: a real Sign in with Apple lands on the signed-in stub, and relaunching skips the
    sign-in screen. `swift test` still runs with no credentials.
-   blocked on: the plist and the capability — both from Fedir, neither in the repo.
-4. ⬜ **Google Sign-In through the same seam**
-   entries:
-   - Add GoogleSignIn by SPM to the app target; present it, exchange for a Firebase
-     credential, return the ID token. Cancel throws `CancellationError`.
-   - Register the reversed client ID URL scheme.
-   files: FirebaseIdentityProvider.swift, `mindlens/Info.plist`
+   blocked on: the plist and the Sign in with Apple capability — both from Fedir, neither in the repo.
+4. ⬜ **Google Sign-In through the same seam** — GoogleSignIn presents, Firebase exchanges,
+   the ID token comes back; cancel throws `CancellationError`; reversed client ID URL scheme.
+   entries: `IdentityAuthenticating.signInWithGoogle()` · `SignInView.googleButton` ·
+   the URL scheme in `mindlens/Info.plist`.
+   files: FirebaseIdentityProvider.swift, `mindlens/Info.plist`, `mindlens.xcodeproj/project.pbxproj`
    ready: "Continue with Google" completes and lands signed in.
-5. ⬜ **Capture the two auth fixtures and drop the waiver**
-   entries:
-   - During a real sign-in, save the `/auth/apple` 200 and a `/auth/refresh` 200 to `Packages/MindlensKit/Sources/TestSupport/Fixtures/`.
-   - Point the decoding tests at them; delete the inline bodies and the swiftgate waiver.
-   files: `Packages/MindlensKit/Tests/NetworkingTests/AuthContractTests.swift`, `Packages/MindlensKit/Sources/Networking/AuthEndpoints.swift`
+5. ⬜ **Capture the two auth fixtures and drop the waiver** — save the `/auth/apple` 200 and a
+   `/auth/refresh` 200 during a real sign-in, point the decoding tests at them, delete the
+   inline bodies.
+   entries: the waiver in `Packages/MindlensKit/Sources/Networking/AuthEndpoints.swift` ·
+   `AuthResponseDecodingTests` · `Tools/capture-fixtures.sh` (which cannot script these two).
+   files: `Packages/MindlensKit/Sources/TestSupport/Fixtures/`, `Packages/MindlensKit/Tests/NetworkingTests/AuthContractTests.swift`
    ready: `Tools/swiftgate --static-only` passes with no waiver; the fixtures README lists both as live.
 6. ⬜ `Persistence` test target for the Keychain paths. Shape it once 3 has run for real.
 

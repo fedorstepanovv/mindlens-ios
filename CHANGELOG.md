@@ -56,7 +56,7 @@ progress log this project has produced before.
 - ADR 0010 — identity exchange behind a protocol, auth repository in `Networking`.
 - **One file per feature** — `docs/features/<name>.md` from `docs/features/0000-template.md`:
   what the user can do and when it is done, decisions settled so they are not reinvented,
-  the next few steps with `entries` / `files` / `ready` and inline status, and an append-only
+  the next few steps with `entries` (entry points) / `files` / `ready` and inline status, and an append-only
   journal. Capped at 100 lines. `/feature-start` takes the first open step, `/feature-done`
   ticks it, and the stop hook accepts a feature-file update. `docs/features/auth.md` is the
   first (ADR 0011).
