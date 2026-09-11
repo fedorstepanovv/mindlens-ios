@@ -29,6 +29,10 @@ check SWIFT_VERSION 6.0
 check IPHONEOS_DEPLOYMENT_TARGET 18.0
 check SWIFT_STRICT_CONCURRENCY complete
 check API_BASE_URL https://mindlens-api-production.up.railway.app
+# Unset, Xcode fills the team in from whichever account is signed in — and it picked one that
+# did not own the App ID, so Sign in with Apple failed with AKAuthenticationError -7022 on the
+# first real run. The team is the one that holds com.trymindlensnative.mindlens.
+check DEVELOPMENT_TEAM 8N7NUUCQ9X
 
 # API_BASE_URL only reaches runtime through the app's Info.plist, and the app reads it at
 # launch — a missing key is a crash on the first screen, not a warning.
@@ -52,6 +56,25 @@ elif ! got_url=$(plutil -extract MindlensAPIBaseURL raw "$plist" 2>/dev/null) \
     status=1
 fi
 
+# Sign in with Apple is an entitlement, and an entitlement is only real once it is in the built
+# executable. Not the code signature: a simulator build signs ad hoc with an *empty* set, so
+# `codesign -d --entitlements` reads back `{}` and looks exactly like the capability was dropped.
+# The simulator enforces the __TEXT,__entitlements section instead, so that is what this reads.
+# otool prints the section as little-endian 32-bit words; the awk swaps each back into bytes.
+exe_path=$(printf '%s\n' "$settings" | sed -n 's/^ *EXECUTABLE_PATH = //p' | head -1)
+exe="$products/$exe_path"
+if [ ! -f "$exe" ]; then
+    printf '  %-30s %s\n' "executable" "not built yet — build the app for this destination first"
+    status=1
+elif ! otool -X -s __TEXT __entitlements "$exe" \
+    | awk '{for (i = 2; i <= NF; i++) printf "%s", substr($i,7,2) substr($i,5,2) substr($i,3,2) substr($i,1,2)}' \
+    | xxd -r -p | tr -d '\0' \
+    | plutil -extract 'com\.apple\.developer\.applesignin' json -o - - >/dev/null 2>&1; then
+    printf '  %-30s %s\n' "applesignin entitlement" "absent from the built executable"
+    printf '  %s\n' "(mindlens/mindlens.entitlements, via CODE_SIGN_ENTITLEMENTS on the app target)"
+    status=1
+fi
+
 if [ "$status" -ne 0 ]; then
     cat <<'MSG'
 
@@ -63,4 +86,4 @@ MSG
     exit 1
 fi
 
-echo "Build settings OK — Swift 6, iOS 18, complete concurrency, API URL intact."
+echo "Build settings OK — Swift 6, iOS 18, complete concurrency, API URL intact, Sign in with Apple entitled."
