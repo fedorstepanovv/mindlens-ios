@@ -76,9 +76,9 @@ progress log this project has produced before.
 - `docs/API.md` documents a **third** error-envelope shape: a 422 spells its status
   `status`, not `statusCode`, and carries no `error` key. Captured live as
   `error_invalid_token_422.json`. `data.user` is documented as the whole Prisma row.
-- `AppConfiguration` reads the API origin from the generated Info.plist, which
-  `INFOPLIST_KEY_MindlensAPIBaseURL` forwards from `API_BASE_URL` — one source of truth, and
-  `Tools/check-build-settings.sh` now asserts the forwarding as well as the setting.
+- `AppConfiguration` reads the API origin from the app's Info.plist, which
+  `mindlens/Info.plist` fills in from `API_BASE_URL` — one source of truth.
+  `Tools/check-build-settings.sh` asserts the key in the **built** bundle.
 - `SwiftLint custom_rules.text_needs_bundle` — `SwiftUI.Text("…")` in a package target has
   the same silent non-localization hole as `String(localized:)`.
 - `Tools/check-doc-links.py` skips `worktrees`. A git worktree is a different checkout, so
@@ -86,6 +86,20 @@ progress log this project has produced before.
   failed for everyone whenever a gate run was in flight.
 
 ### Fixed
+Stage 1 follow-up, 2026-09-11 — all three found by running the app rather than building it:
+- **The app crashed on launch.** `INFOPLIST_KEY_MindlensAPIBaseURL` resolved correctly in the
+  build settings and never reached the bundle: Xcode's generated Info.plist forwards only the
+  `INFOPLIST_KEY_` names on its own allowlist and drops the rest without a word. Replaced with
+  a partial `mindlens/Info.plist` that Xcode merges its generated keys into, and a
+  `PBXFileSystemSynchronizedBuildFileExceptionSet` so the synchronized folder does not also
+  copy that file as a resource and collide with the processed one.
+- `Tools/check-build-settings.sh` asserted the build setting, which was correct, rather than
+  the built `Info.plist`, which was missing the key. It now reads the bundle.
+- The sign-in screen broke at accessibility text sizes: the bottom panel could not scroll, and
+  `SignInWithAppleButton` lost its capsule and fell under the 44pt tap target. The screen is
+  one scroll view now, and the button's height is clamped to the 30–64pt range Apple documents
+  and rebuilt on a text-size change, which it does not survive on its own.
+
 Findings from an adversarial architecture review, 2026-09-10:
 - Keychain wrote the token pair as two items; a tear left a new access token beside an
   already-consumed refresh token. Now one atomic item.

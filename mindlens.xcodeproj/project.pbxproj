@@ -8,13 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		9C2879B8305337F600D73F47 /* Analytics in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879B7305337F600D73F47 /* Analytics */; };
-		9C2879D2305337F600D73F47 /* Authentication in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879D1305337F600D73F47 /* Authentication */; };
-		9C2879D4305337F600D73F47 /* Networking in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879D3305337F600D73F47 /* Networking */; };
-		9C2879D6305337F600D73F47 /* Persistence in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879D5305337F600D73F47 /* Persistence */; };
 		9C2879BA305337F600D73F47 /* Core in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879B9305337F600D73F47 /* Core */; };
 		9C2879BC305337F600D73F47 /* Dashboard in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879BB305337F600D73F47 /* Dashboard */; };
 		9C2879BE305337F600D73F47 /* DesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879BD305337F600D73F47 /* DesignSystem */; };
 		9C2879C0305337F600D73F47 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879BF305337F600D73F47 /* Models */; };
+		9C2879D2305337F600D73F47 /* Authentication in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879D1305337F600D73F47 /* Authentication */; };
+		9C2879D4305337F600D73F47 /* Networking in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879D3305337F600D73F47 /* Networking */; };
+		9C2879D6305337F600D73F47 /* Persistence in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879D5305337F600D73F47 /* Persistence */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,16 +35,29 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		9C2879C1305337F600D73F47 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		9C2879C2305337F600D73F47 /* Secrets.example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.example.xcconfig; sourceTree = "<group>"; };
 		9C76249D3052E320003B13B1 /* mindlens.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = mindlens.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C7624AA3052E321003B13B1 /* mindlensTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mindlensTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C7624B43052E321003B13B1 /* mindlensUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mindlensUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		9C2879C1305337F600D73F47 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
-		9C2879C2305337F600D73F47 /* Secrets.example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.example.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		9C2879E1305337F600D73F47 /* Exceptions for "mindlens" folder in "mindlens" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 9C76249C3052E320003B13B1 /* mindlens */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		9C76249F3052E320003B13B1 /* mindlens */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9C2879E1305337F600D73F47 /* Exceptions for "mindlens" folder in "mindlens" target */,
+			);
 			path = mindlens;
 			sourceTree = "<group>";
 		};
@@ -439,7 +452,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_MindlensAPIBaseURL = "$(API_BASE_URL)";
+				INFOPLIST_FILE = mindlens/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -470,7 +483,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_MindlensAPIBaseURL = "$(API_BASE_URL)";
+				INFOPLIST_FILE = mindlens/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

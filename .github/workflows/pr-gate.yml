@@ -65,6 +65,18 @@ jobs:
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -quiet
 
+      # A green build says the app compiles, not that it runs. It once compiled cleanly and
+      # then died on the first line of the composition root. Two launches — default, and the
+      # largest accessibility text size — are the cheapest test that would have caught it.
+      - name: Launch the app
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme mindlens \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:mindlensUITests \
+            -quiet
+
       - name: Verify the settings the documents claim
         run: Tools/check-build-settings.sh "id=${{ steps.sim.outputs.udid }}"
 

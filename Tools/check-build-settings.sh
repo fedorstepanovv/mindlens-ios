@@ -29,10 +29,28 @@ check SWIFT_VERSION 6.0
 check IPHONEOS_DEPLOYMENT_TARGET 18.0
 check SWIFT_STRICT_CONCURRENCY complete
 check API_BASE_URL https://mindlens-api-production.up.railway.app
-# API_BASE_URL only reaches runtime through the generated Info.plist. Resolving to the right
-# value and never being forwarded looks identical from the xcconfig's side, and the app reads
-# this key at launch — so assert the forwarding too, not just the source.
-check INFOPLIST_KEY_MindlensAPIBaseURL https://mindlens-api-production.up.railway.app
+
+# API_BASE_URL only reaches runtime through the app's Info.plist, and the app reads it at
+# launch — a missing key is a crash on the first screen, not a warning.
+#
+# This reads the **built** Info.plist rather than a build setting, because the two disagreed
+# once already: INFOPLIST_KEY_MindlensAPIBaseURL resolved perfectly in -showBuildSettings and
+# never reached the bundle, since Xcode forwards only INFOPLIST_KEY_ names on its own allowlist
+# and silently drops the rest. A setting that resolves is not a setting that shipped.
+want_url=https://mindlens-api-production.up.railway.app
+products=$(printf '%s\n' "$settings" | sed -n 's/^ *BUILT_PRODUCTS_DIR = //p' | head -1)
+plist_path=$(printf '%s\n' "$settings" | sed -n 's/^ *INFOPLIST_PATH = //p' | head -1)
+plist="$products/$plist_path"
+
+if [ ! -f "$plist" ]; then
+    printf '  %-30s %s\n' "Info.plist" "not built yet — build the app for this destination first"
+    status=1
+elif ! got_url=$(plutil -extract MindlensAPIBaseURL raw "$plist" 2>/dev/null) \
+    || [ "$got_url" != "$want_url" ]; then
+    printf '  %-30s is %-26s expected %s\n' "MindlensAPIBaseURL" "'${got_url:-absent}'" "'$want_url'"
+    printf '  %s\n' "(in $plist — it comes from mindlens/Info.plist, which \$(API_BASE_URL) fills in)"
+    status=1
+fi
 
 if [ "$status" -ne 0 ]; then
     cat <<'MSG'

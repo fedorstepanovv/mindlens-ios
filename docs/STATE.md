@@ -20,16 +20,16 @@ does the app target: `Config/Base.xcconfig` is the project's base configuration 
 definition of those settings (ADR 0009). **75 tests across 17 suites pass** in ~2s from the CLI.
 SwiftLint, swift-format and the doc-link check are clean over `Sources`, `Tests` and `mindlens`.
 
-**The app has UI.** The scene root is a `switch` on `SessionState` — restoring, signed out,
-onboarding, signed in — and the signed-out branch is a real sign-in screen with the system
-Sign in with Apple button. Onboarding and signed-in are placeholders.
+**The app has UI, verified by running it** — the scene root switches on `SessionState`, and the
+signed-out branch is a sign-in screen on the system Sign in with Apple button, checked in light
+and dark at default and the largest accessibility text size. Onboarding and signed-in are stubs.
 
 Sign-in is wired end to end **except the credential exchange**: the server verifies Firebase ID
 tokens, and no Firebase SDK is linked. `UnavailableIdentityProvider` throws at that seam, so
 tapping a button reaches the boundary and stops there (ADR 0010).
 
-Nothing reaches `main` except through the PR gate: build, test, lint, doc links, build settings,
-then `Tools/swiftgate`. See ADR 0006.
+Nothing reaches `main` except through the PR gate: build, test, launch, lint, doc links, build
+settings, then `Tools/swiftgate`. See ADR 0006.
 
 ## Next action
 
