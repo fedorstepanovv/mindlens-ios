@@ -62,8 +62,8 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
   validation gate are all unstarted. Stage 2.
 - No `PrivacyInfo.xcprivacy`, entitlements or usage descriptions; HealthKit beside analytics needs
   a documented data boundary (Guideline 5.1.3). All required before submission.
-- No brand colour or app icon — `AccentColor` is an empty colour set, so the app tints system
-  blue. Analytics records events only, and the Google button is unbranded.
+- No brand colour or app icon — `AccentColor` is empty, so the app tints system blue. Analytics
+  records events only. The Google button is unbranded but paired to Apple's per the HIG.
 
 ## Deliberately not doing
 

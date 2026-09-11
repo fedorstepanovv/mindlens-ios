@@ -129,6 +129,12 @@ Review follow-up, 2026-09-11 — two independent reviews of the Stage 1 branch:
   opposite, deliberately. The doc was wrong.
 - `docs/STATE.md` claimed the Keychain device GUID was tested. `Persistence` has no test target.
 - The apostrophe in the app's first line was straight where the product's is typographic.
+- The two sign-in buttons did not pair. The HIG for Sign in with Apple requires other sign-in
+  buttons beside it to be the same size and corner radius; the Google button had a 10pt radius
+  against Apple's 6, chrome sized to its label rather than a control, and at accessibility
+  sizes ran to two lines and twice the height. It now takes Apple's radius, its height from
+  `.controlSize(.large)`, the same weight, and caps its label's type range at `.xxxLarge` as
+  Apple's own label does — the one documented exception to Dynamic Type everywhere.
 
 Stage 1 follow-up, 2026-09-11 — all three found by running the app rather than building it:
 - **The app crashed on launch.** `INFOPLIST_KEY_MindlensAPIBaseURL` resolved correctly in the

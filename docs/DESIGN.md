@@ -58,6 +58,10 @@ These are build rules, not aspirations:
 
 - **Dynamic Type everywhere.** Semantic text styles only. No fixed point sizes. Every
   screen is checked at accessibility sizes — layouts wrap and scroll, they don't clip.
+  One documented exception: a button that must match a system control's size — the
+  Google button beside `SignInWithAppleButton`, which the HIG requires to be the same
+  size and radius — caps its label's *range* at `.xxxLarge`, because Apple's own label
+  caps there. It still scales through every size below.
 - **VoiceOver labels on every interactive element.** Icon-only buttons need explicit
   labels; decorative images are hidden from accessibility.
 - **Light and dark both correct**, from semantic colors and asset-catalog appearances.

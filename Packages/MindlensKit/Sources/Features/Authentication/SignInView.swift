@@ -17,13 +17,23 @@ public struct SignInView: View {
     /// falls under the 44pt tap-target floor.
     @ScaledMetric(relativeTo: .body) private var controlHeight: CGFloat = 50
 
-    /// The same height, clamped to the range Apple documents for this button: **30–64pt**.
+    /// The height of **both** provider buttons, clamped to the range Apple documents for its
+    /// own: **30–64pt**.
     ///
-    /// Outside it the control misbehaves rather than complains — stretched past 64 it draws its
-    /// label with no capsule behind it, which at an accessibility text size is most of the
-    /// screen's width of unstyled text where a button should be. 44 is the floor because that
-    /// is the tap target, so the usable range here is 44–64.
-    private var appleButtonHeight: CGFloat { min(max(controlHeight, 44), 64) }
+    /// Outside it the Apple control misbehaves rather than complains — stretched past 64 it draws
+    /// its label with no capsule behind it, which at an accessibility text size is most of the
+    /// screen's width of unstyled text where a button should be. 44 is the floor because that is
+    /// the tap target, so the usable range is 44–64.
+    ///
+    /// The Google button takes the same value because the HIG for Sign in with Apple says so:
+    /// other sign-in buttons shown beside it must be the same size and use the same corner
+    /// radius. The Apple button cannot be changed to match anything, so everything matches it.
+    private var providerButtonHeight: CGFloat { min(max(controlHeight, 44), 64) }
+
+    /// `ASAuthorizationAppleIDButton`'s default corner radius, which SwiftUI exposes no way to
+    /// read or set. Same HIG rule as the height: the sibling matches it, not the reverse. Not a
+    /// `Radius` token because it is not ours to choose.
+    private static let providerButtonRadius: CGFloat = 6
 
     /// The scroll view's own height, measured. See `body`.
     @State private var availableHeight: CGFloat = 0
@@ -108,7 +118,7 @@ public struct SignInView: View {
         // An exact height, not a minimum: given only a minimum this becomes the stack's
         // flexible child and swallows every point of slack on the screen. Given no width it
         // sizes to its label and drops its capsule. Both dimensions have to be said.
-        .frame(height: appleButtonHeight)
+        .frame(height: providerButtonHeight)
         .frame(maxWidth: .infinity)
         // Rebuilt when the text size changes. It is a UIKit view underneath, and on a live
         // trait change it keeps its old capsule geometry — the height updates, the background
@@ -136,12 +146,21 @@ public struct SignInView: View {
             // `ProgressView` leaves the button with no accessibility name at all — VoiceOver
             // announces an unnamed busy button — and lets its width jump as the label goes.
             Text("Continue with Google", bundle: .module)
+                .fontWeight(.semibold)
                 .opacity(model.pending == .google ? 0 : 1)
-                .frame(maxWidth: .infinity, minHeight: controlHeight)
+                .frame(maxWidth: .infinity)
                 .overlay { if model.pending == .google { ProgressView() } }
         }
         .buttonStyle(.bordered)
-        .buttonBorderShape(.roundedRectangle(radius: Radius.control))
+        .buttonBorderShape(.roundedRectangle(radius: Self.providerButtonRadius))
+        // The same size as its sibling, which the HIG requires. A `.frame(height:)` on the button
+        // does not do it — `.bordered` draws its chrome around the label's own size and only the
+        // layout slot changes — so the height comes from the control size, the way a system
+        // button's does. The label's type range is capped at the largest non-accessibility size
+        // so the button stays one line and one height, which is what the Apple button's own
+        // label does; it still scales through every size below that.
+        .controlSize(.large)
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .disabled(model.isSigningIn)
         .accessibilityValue(
             model.pending == .google ? Text("Signing in", bundle: .module) : Text(verbatim: "")
