@@ -26,8 +26,8 @@ dark at default and the largest accessibility size. Onboarding and signed-in are
 Sign-in is wired end to end **except the credential exchange**: no Firebase SDK is linked, so
 `UnavailableIdentityProvider` throws at that seam and a tap stops there (ADR 0010).
 
-Nothing reaches `main` except the PR gate: test, build, launch, build settings, lint, doc links,
-and `Tools/swiftgate` alongside. See ADR 0006.
+Nothing reaches `main` except the PR gate: test, build, launch, build settings (Debug only —
+Release is unasserted), lint, doc links, and `Tools/swiftgate` alongside. See ADR 0006.
 
 ## Next action
 

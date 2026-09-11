@@ -108,6 +108,25 @@ view-level test.
 XCUITest, deliberately small — cold launch to signed-in dashboard, logging a mood, and the
 paywall appearing when it should. UI tests are flaky in proportion to their number.
 
+## Running it
+
+A green build is not a running app — it once compiled, passed every test, and died on the
+first line of the composition root. The gate launches it now, but for anything visual, run it
+and look. From the CLI, with a simulator id from `xcrun simctl list devices available`:
+
+```
+xcrun simctl boot <id>; xcrun simctl install <id> <path/to/mindlens.app>
+xcrun simctl launch <id> com.trymindlensnative.mindlens
+xcrun simctl ui <id> appearance dark            # or light
+xcrun simctl ui <id> content_size accessibility-extra-extra-extra-large   # or medium
+xcrun simctl io <id> screenshot out.png
+```
+
+The built `.app` path is `BUILT_PRODUCTS_DIR` from `xcodebuild -showBuildSettings`. Check dark
+and the largest text size on every screen — those two together are what broke the sign-in
+screen. A UIKit-backed control (`SignInWithAppleButton`) can go stale on a *live* text-size
+change, so relaunch after switching before trusting what you see.
+
 ## Accessibility
 
 Mechanised, not reviewed by eye:
