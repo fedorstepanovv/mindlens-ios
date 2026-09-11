@@ -24,8 +24,11 @@ public actor KeychainDeviceIdentity: DeviceIdentifying {
         // A read failure is not a reason to refuse the read: an item written under a
         // different accessibility class, or a Keychain that is simply unhappy, both surface
         // here and neither means "no GUID exists".
+        // The API validates `guid` as 6–36 characters. Checking only the floor lets a value that
+        // is too *long* through, and because it is then cached and re-read forever it becomes a
+        // permanent 400 on every sign-in with no way back. Both bounds.
         if let stored = try? item.read(), let existing = String(data: stored, encoding: .utf8),
-            existing.count >= 6
+            (6...36).contains(existing.count)
         {
             cached = existing
             return existing

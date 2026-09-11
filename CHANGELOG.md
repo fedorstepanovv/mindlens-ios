@@ -46,7 +46,9 @@ progress log this project has produced before.
   get-or-create is a read-modify-write, and preserved across sign-out so the next sign-in
   reuses this device's session slot instead of evicting another device.
 - `KeychainItem`, extracted so the token pair and the device GUID share one set of
-  `SecItem` calls and one accessibility attribute.
+  `SecItem` calls and one accessibility attribute. **Note for anyone with a build already
+  installed:** the token pair moved from two Keychain items (`access`, `refresh`) to one
+  (`tokens`), so an existing install is signed out once and the two old items are orphaned.
 - `SystemDeviceModel` — `utsname.machine` with the simulator case handled: it reports
   `arm64` there, one character under the API's six-character floor, which was a 400 on
   every sign-in on every developer's machine.
@@ -86,6 +88,48 @@ progress log this project has produced before.
   failed for everyone whenever a gate run was in flight.
 
 ### Fixed
+Review follow-up, 2026-09-11 — two independent reviews of the Stage 1 branch:
+- **A refresh in flight at sign-out overwrote the next session's tokens.** `adopt()` clears
+  `sessionIsOver`, so a refresh that resumed after a sign-out *and a fresh sign-in* passed the
+  guard and wrote the dead session's rotated pair over the live one — ADR 0004's incident through
+  the side door. The guard is a generation comparison now, and sits outside the `catch`, where an
+  `.unauthenticated` would otherwise be classified as a rejected token and tear down the new
+  session it was protecting.
+- **`defer { inFlight = nil }` unregistered whichever refresh was current, not its own**, so a
+  finishing refresh could silently detach another and the next caller would start a second
+  concurrent refresh on a single-use token. Registrations are stamped.
+- Both are covered by `TokenRefresherRegressionTests`, which reproduces each deterministically —
+  and `signOutDuringRefreshDiscardsResult`, cited in `docs/TESTING.md` as one of the two tests
+  "that would have caught real bugs", never called the transport at all.
+- A **Keychain read failure was indistinguishable from "no session"**: `try?` turned a locked or
+  corrupt Keychain into a silent sign-out at launch, with the tokens left on disk.
+- `SessionModel.restore()` set `.signedOut` on a rejected session **without ending it**, so every
+  launch rotated a fresh refresh token, failed, and parked the user on sign-in — indefinitely.
+- **Sign-out spent a single-use refresh token** on its way out: `POST /auth/logout` went through
+  `APIClient`, which refreshes on 401. `Endpoint.retriesAfterRefresh` opts it out.
+- `SessionModel` had **no re-entrancy guard** — two sign-ins could run concurrently, the first
+  `defer` re-enabling both buttons mid-flight, and a stale error could survive into a live session.
+- A **malformed Apple credential was reported as a cancellation**, so a real failure was silent.
+- The Google button **lost its VoiceOver name while signing in**; its label stays in the tree now.
+  Two transcribed `opacity(0.4)` values went with it — SwiftUI already dims a disabled button.
+- `GeometryReader` wrapping the `ScrollView` became `containerRelativeFrame(.vertical)`.
+- A stored device GUID over 36 characters was accepted, cached and re-read forever — a permanent
+  400 on every sign-in. Both bounds are checked.
+- DNS, host-unreachable and TLS failures mapped to `.unknown`, so a captive portal reported
+  "something went wrong" and claimed to be non-retryable.
+- The 409 sign-in copy diagnosed "already signed up with a different provider", which `docs/API.md`
+  does not substantiate. Removed rather than shown to a user as fact.
+- `Tools/capture-fixtures.sh` truncated its target before knowing the outcome, so a 502 page or a
+  dropped connection destroyed the fixture it was refreshing. It writes to a temp file, checks the
+  status and that the body is JSON, and only then replaces.
+- `docs/API.md` claimed `statusCode` was "absent under one name or the other in two of the three
+  shapes" — it is absent from one. Its 401 comment contradicted the JSON beside it. Both fixed, and
+  the 6–36 character validation bounds are now written down.
+- `docs/DESIGN.md` claimed typography tokens live in `DesignSystem`; `Spacing.swift` says the
+  opposite, deliberately. The doc was wrong.
+- `docs/STATE.md` claimed the Keychain device GUID was tested. `Persistence` has no test target.
+- The apostrophe in the app's first line was straight where the product's is typographic.
+
 Stage 1 follow-up, 2026-09-11 — all three found by running the app rather than building it:
 - **The app crashed on launch.** `INFOPLIST_KEY_MindlensAPIBaseURL` resolved correctly in the
   build settings and never reached the bundle: Xcode's generated Info.plist forwards only the

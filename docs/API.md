@@ -29,7 +29,7 @@ Source of truth in the server repo: `src/**/**.controller.ts` (routes),
   Verified against production, and the **three** shapes genuinely differ — the status
   field is not even named consistently:
   ```json
-  // 401 — no `error` key at all
+  // 401 — no `error` key *inside* `error`, only `message` + `statusCode`
   {"data":null,"success":false,"error":{"message":"Unauthorized","statusCode":401},"timestamp":"…"}
   // 400 — array message, plus `error`
   {"data":null,"success":false,"error":{"message":["…"],"error":"Bad Request","statusCode":400},"timestamp":"…"}
@@ -38,8 +38,8 @@ Source of truth in the server repo: `src/**/**.controller.ts` (routes),
   ```
   The 422 comes from a hand-built `UnprocessableEntityException` payload rather than
   Nest's default filter, which is why its key differs. **Never classify on the body's
-  status field** — it is absent under one name or the other in two of the three shapes.
-  Classify on the HTTP status; the body is only good for a message.
+  status field** — `statusCode` is simply absent from the 422. Classify on the HTTP
+  status; the body is only good for a message.
   Captured fixtures live in `Packages/MindlensKit/Sources/TestSupport/Fixtures`.
 - **Unknown request fields are rejected.** The server runs `whitelist` +
   `forbidNonWhitelisted`, so sending an extra key is a 400, not a silent drop. Encode
@@ -76,6 +76,11 @@ this indirection is intentional or historical.)
 { "idToken": "…", "guid": "device-uuid", "deviceModel": "iPhone17,1", "timezone": "Europe/Kyiv" }
 ```
 `/auth/apple` additionally accepts optional `email` for the private-relay case.
+
+Validation, and it bites: `guid` and `deviceModel` are both **6–36 characters**, `timezone` must
+be a real IANA identifier, and `email` must parse. The six-character floor is not academic —
+`utsname.machine` is `arm64` on a simulator, five characters, a 400 on every sign-in until
+`SystemDeviceModel` was taught to handle it.
 
 **Response** `data`:
 ```json

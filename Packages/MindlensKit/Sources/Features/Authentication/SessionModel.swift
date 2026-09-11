@@ -53,7 +53,11 @@ public final class SessionModel {
                 state = .signedOut
             }
         } catch let appError as AppError where appError.kind == .unauthenticated {
-            // The server rejected the stored session. This is the only error that signs out.
+            // The server rejected the stored session — the only error that signs out. Tell the
+            // repository too: without it the dead pair stays in the Keychain and `sessionIsOver`
+            // stays false, so the next launch rotates a refresh token, fails again, and parks the
+            // user on sign-in. Once per launch, forever.
+            await auth.signOut()
             state = .signedOut
         } catch is CancellationError {
             // The scene went away mid-restore.
@@ -126,6 +130,13 @@ public final class SessionModel {
     // MARK: - Private
 
     private func signIn(with provider: SignInProvider, _ authenticate: () async throws -> User) async {
+        // The view disables both buttons while one is in flight, but a render is not a guard: two
+        // concurrent `/auth/*` posts under the same device GUID make the server replace this
+        // device's session, and whichever adopt lands second may be the invalidated pair. The
+        // first `defer` would also clear `pending` while the other flow was still running, so the
+        // buttons would come back mid-sign-in.
+        guard pending == nil else { return }
+
         pending = provider
         error = nil
         defer { pending = nil }
@@ -133,6 +144,7 @@ public final class SessionModel {
         do {
             let user = try await authenticate()
             state = SessionState(authenticated: user)
+            error = nil
 
             // One path serves sign-up and sign-in, and the server returns no "is new" flag —
             // so an incomplete onboarding stands in for a fresh account. It over-counts a

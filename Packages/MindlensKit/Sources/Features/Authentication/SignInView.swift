@@ -25,6 +25,9 @@ public struct SignInView: View {
     /// is the tap target, so the usable range here is 44–64.
     private var appleButtonHeight: CGFloat { min(max(controlHeight, 44), 64) }
 
+    /// The scroll view's own height, measured. See `body`.
+    @State private var availableHeight: CGFloat = 0
+
     private let model: SessionModel
 
     public init(model: SessionModel) {
@@ -40,25 +43,36 @@ public struct SignInView: View {
         // `minHeight: proxy.size.height` buys back the default-size layout: the stack fills the
         // screen, so the `Spacer` genuinely pushes the buttons down, and content taller than
         // that scrolls instead of clipping.
-        GeometryReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: Spacing.snug) {
-                    Text("See what's behind", bundle: .module)
-                        .font(.largeTitle.weight(.bold))
-                    Text("your good and bad days", bundle: .module)
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.snug) {
+                Text("See what’s behind", bundle: .module)
+                    .font(.largeTitle.weight(.bold))
+                Text("your good and bad days", bundle: .module)
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
 
-                    Spacer(minLength: Spacing.section)
+                Spacer(minLength: Spacing.section)
 
-                    signInPanel
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, Spacing.loose)
-                .padding(.vertical, Spacing.section)
-                .frame(minHeight: proxy.size.height, alignment: .top)
+                signInPanel
             }
-            .scrollBounceBehavior(.basedOnSize)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Spacing.loose)
+            .padding(.vertical, Spacing.section)
+            // *At least* as tall as the scroll view: the `Spacer` becomes real at default sizes
+            // and pushes the buttons down, and anything taller scrolls instead of compressing.
+            //
+            // The minimum is the point. `containerRelativeFrame` reads better but sets an
+            // **exact** height, so at accessibility sizes the legal text was truncated with an
+            // ellipsis rather than being allowed to overflow into scroll. A `GeometryReader`
+            // wrapper gives the right semantics but has no intrinsic size and takes every point
+            // offered; `onGeometryChange` measures without laying anything out.
+            .frame(minHeight: availableHeight, alignment: .top)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.height
+        } action: {
+            availableHeight = $0
         }
     }
 
@@ -103,7 +117,6 @@ public struct SignInView: View {
         // is exactly what someone adjusting accessibility settings does.
         .id(dynamicTypeSize)
         .disabled(model.isSigningIn)
-        .opacity(model.pending == .google ? 0.4 : 1)
         .overlay {
             if model.pending == .apple {
                 ProgressView().tint(colorScheme == .dark ? .black : .white)
@@ -119,19 +132,20 @@ public struct SignInView: View {
         Button {
             Task { await model.signInWithGoogle() }
         } label: {
-            Group {
-                if model.pending == .google {
-                    ProgressView()
-                } else {
-                    Text("Continue with Google", bundle: .module)
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: controlHeight)
+            // The label stays in the tree and is merely invisible. Swapping it out for a bare
+            // `ProgressView` leaves the button with no accessibility name at all — VoiceOver
+            // announces an unnamed busy button — and lets its width jump as the label goes.
+            Text("Continue with Google", bundle: .module)
+                .opacity(model.pending == .google ? 0 : 1)
+                .frame(maxWidth: .infinity, minHeight: controlHeight)
+                .overlay { if model.pending == .google { ProgressView() } }
         }
         .buttonStyle(.bordered)
         .buttonBorderShape(.roundedRectangle(radius: Radius.control))
         .disabled(model.isSigningIn)
-        .opacity(model.pending == .apple ? 0.4 : 1)
+        .accessibilityValue(
+            model.pending == .google ? Text("Signing in", bundle: .module) : Text(verbatim: "")
+        )
     }
 
     /// Links live inline in the string as markdown, which `Text` renders and opens for us —
@@ -161,7 +175,12 @@ public struct SignInView: View {
                 let tokenData = credential.identityToken,
                 let identityToken = String(data: tokenData, encoding: .utf8)
             else {
-                model.signInWasCancelled()
+                // Apple reported success and handed back something unusable. Reporting that as a
+                // cancellation is the silent failure the branch below exists to avoid: the sheet
+                // closes, the screen returns to idle, and nothing tells the user or us.
+                model.signInFailed(
+                    AppError(kind: .unknown, diagnostic: "Apple returned no usable identity token")
+                )
                 return
             }
 

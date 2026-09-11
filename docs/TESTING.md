@@ -67,10 +67,17 @@ tautological — it passes against implementations that are still broken, becaus
 simultaneous arrival is the easy case.
 
 The case that actually breaks in production is **staggered**: a request that was already
-in flight when someone else refreshed, coming back 401 afterwards. See
-`Packages/MindlensKit/Tests/NetworkingTests/TokenRefresherTests.swift` — specifically
-`staleGenerationShortCircuits` and `signOutDuringRefreshDiscardsResult`, which are the
-two tests that would have caught real bugs.
+in flight when someone else refreshed, coming back 401 afterwards.
+
+And a test that *races* the actor is not a staggered test — it is a coin toss that the actor
+always wins. `signOutDuringRefreshDiscardsResult` in `TokenRefresherTests.swift` starts a refresh
+with `async let` and immediately signs out; sign-out wins every time, `refreshed(after:)` returns
+on the `sessionIsOver` check, and **the transport is never called at all**. It passed against two
+real bugs.
+
+The interleavings have to be *made*, not hoped for:
+`Packages/MindlensKit/Tests/NetworkingTests/TokenRefresherRegressionTests.swift` holds a refresh
+open inside `GatedRefreshTransport`, does something to the actor, and only then lets it land.
 
 ## No test touches the network
 

@@ -67,9 +67,12 @@ These are build rules, not aspirations:
 
 ## Tokens
 
-Spacing, radii, and typography live in `DesignSystem` as a small token set on top of the
-system scale. Tokens exist to keep spacing consistent — not to build a parallel design
-language that fights the platform.
+Spacing, radii and colour live in `DesignSystem` as a small token set. Tokens exist to keep
+spacing consistent — not to build a parallel design language that fights the platform.
+
+**Typography is not a token set here.** Semantic text styles *are* the type system on iOS, and a
+parallel scale is the habit this rewrite exists to drop; reach for `.font(.title3)` and a weight
+or design, never a point size. `Spacing.swift` says the same thing at the top of the file.
 
 ## Content
 

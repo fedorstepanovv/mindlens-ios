@@ -26,7 +26,7 @@ struct RootView: View {
             } else {
                 ProgressView()
                     .controlSize(.large)
-                    .accessibilityLabel("Restoring your session")
+                    .accessibilityLabel(Text("Restoring your session", bundle: .main))
             }
 
         case .signedOut:
@@ -54,12 +54,18 @@ struct RootView: View {
     /// look identical to being logged out, and a user with no connection cannot sign back in.
     private var restoreFailed: some View {
         ContentUnavailableView {
-            Label("Can't reach Mindlens", systemImage: "wifi.exclamationmark")
+            Label {
+                Text("Can't reach Mindlens", bundle: .main)
+            } icon: {
+                Image(systemName: "wifi.exclamationmark")
+            }
         } description: {
             Text(session.error?.displayMessage ?? "")
         } actions: {
-            Button("Try Again") {
+            Button {
                 Task { await session.restore() }
+            } label: {
+                Text("Try Again", bundle: .main)
             }
             .buttonStyle(.borderedProminent)
         }
@@ -71,8 +77,10 @@ struct RootView: View {
         } description: {
             Text(message)
         } actions: {
-            Button("Sign Out") {
+            Button {
                 Task { await session.signOut() }
+            } label: {
+                Text("Sign Out", bundle: .main)
             }
         }
     }

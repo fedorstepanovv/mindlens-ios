@@ -52,8 +52,10 @@ struct AuthSessionDTO: Decodable, Sendable {
 // until the Firebase SDK is linked: both responses require a verified Firebase ID token, and
 // `/auth/refresh` additionally requires a live session. Decoding is tested against inline
 // bodies built from the server's DTOs and Prisma schema, labelled as constructed rather than
-// filed under Fixtures/, where a file claims to be a capture. `Tools/capture-fixtures.sh`
-// captures both the moment sign-in works; tracked in docs/STATE.md.
+// filed under Fixtures/, where a file claims to be a capture. Neither is scriptable even with a
+// token — `/auth/apple` needs a live Firebase ID token and `/auth/refresh` consumes the session's
+// refresh token — so both must be captured by hand during a real sign-in. Tracked in
+// docs/STATE.md.
 /// `{accessToken, refreshToken}` — the wire spelling of `TokenPair`.
 struct TokenPairDTO: Decodable, Sendable {
     let accessToken: String
@@ -112,5 +114,7 @@ extension Endpoint where Response == NoContent {
     ///
     /// Built directly rather than through `.post(_:body:)` because it takes no body, and an
     /// empty JSON object is not the same thing as no body to a route with no `@Body`.
-    static var logout: Self { Endpoint(method: .post, path: "/auth/logout") }
+    static var logout: Self {
+        Endpoint(method: .post, path: "/auth/logout", retriesAfterRefresh: false)
+    }
 }

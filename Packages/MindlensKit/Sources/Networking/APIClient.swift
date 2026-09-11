@@ -35,7 +35,9 @@ public final class APIClient: Sendable {
 
         // One retry, and only for a genuine 401. The refresher decides whether that means
         // "token was stale" or "session is over" — see TokenRefresher.
-        if response.statusCode == 401, endpoint.requiresAuth, let credentials {
+        if response.statusCode == 401, endpoint.requiresAuth, endpoint.retriesAfterRefresh,
+            let credentials
+        {
             let fresh = try await refresher.refreshed(after: credentials.generation)
             let (retryData, retryResponse) = try await perform(endpoint, using: fresh.tokens)
             return try decode(retryData, response: retryResponse)

@@ -39,8 +39,14 @@ public struct AppError: Error, Equatable, Sendable {
             return
         }
         if let urlError = error as? URLError {
+            // A captive portal, a dead DNS server and a failed TLS handshake are all "you are
+            // not reaching us right now" — retryable, and worth saying so. Left in `.unknown`
+            // they report as non-retryable and read as "something went wrong", which on the
+            // launch path is the least useful thing we could say.
             let offline: Set<URLError.Code> = [
                 .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed, .timedOut,
+                .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed, .secureConnectionFailed,
+                .internationalRoamingOff, .callIsActive,
             ]
             self.init(
                 kind: offline.contains(urlError.code) ? .offline : .unknown,

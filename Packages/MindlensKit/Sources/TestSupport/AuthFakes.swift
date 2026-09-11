@@ -1,6 +1,7 @@
 import Core
 import Foundation
 import Models
+import Networking
 
 public extension User {
     /// A user for tests to hand around. `onboarded` is the interesting axis: the same sign-in
@@ -116,4 +117,72 @@ public struct FixedDeviceIdentity: DeviceIdentifying {
     }
 
     public func guid() async -> String { value }
+}
+
+/// A refresh transport the test controls precisely: it reports when a call has entered, and
+/// blocks there until released.
+///
+/// Timing-based tests of `TokenRefresher` are worse than useless — they pass against broken
+/// implementations because the interleaving they need never happens. This makes the dangerous
+/// interleaving deterministic: hold a refresh open, do something to the actor, then let it land.
+///
+/// Deliberately **not** cancellation-aware. A real refresh whose response already arrived is not
+/// stopped by `Task.cancel()` either, and that is the window these tests exist to cover.
+public actor GatedRefreshTransport: TokenRefreshing {
+    /// Every refresh token the transport was called with, in order.
+    public private(set) var tokensSeen: [String] = []
+
+    private var blocked: [CheckedContinuation<Void, Never>] = []
+    private var awaitingEntry: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+    private var isOpen = false
+    private let failingCalls: Set<Int>
+
+    /// - Parameter failingCalls: 1-based call numbers that should throw a **transient** error
+    ///   rather than rotate. A transient failure leaves the generation and the cached pair
+    ///   untouched, which is the state the nastiest interleavings need.
+    public init(failingCalls: Set<Int> = []) {
+        self.failingCalls = failingCalls
+    }
+
+    public func refresh(using refreshToken: String) async throws -> TokenPair {
+        tokensSeen.append(refreshToken)
+
+        let reached = awaitingEntry.filter { $0.count <= tokensSeen.count }
+        awaitingEntry.removeAll { $0.count <= tokensSeen.count }
+        for waiter in reached { waiter.continuation.resume() }
+
+        let call = tokensSeen.count
+
+        if !isOpen {
+            await withCheckedContinuation { blocked.append($0) }
+        }
+
+        if failingCalls.contains(call) {
+            throw AppError(kind: .server(status: 503))
+        }
+
+        return TokenPair(access: "rotated-access-\(call)", refresh: "rotated-refresh-\(call)")
+    }
+
+    /// Suspends until at least `count` refreshes have started.
+    public func waitForEntry(count: Int = 1) async {
+        if tokensSeen.count >= count { return }
+        await withCheckedContinuation { awaitingEntry.append((count, $0)) }
+    }
+
+    /// Lets every blocked refresh, and every later one, return.
+    public func release() {
+        isOpen = true
+        let waiting = blocked
+        blocked = []
+        for continuation in waiting { continuation.resume() }
+    }
+
+    /// Releases only the first `count` blocked refreshes, leaving the rest parked and the gate
+    /// shut. This is what makes "one refresh finishes while another is still open" expressible.
+    public func release(count: Int) {
+        let releasing = blocked.prefix(count)
+        blocked.removeFirst(min(count, blocked.count))
+        for continuation in releasing { continuation.resume() }
+    }
 }

@@ -12,6 +12,10 @@ extension AppError {
     /// `displayMessage` in `DesignSystem` is right for every screen that shows an error in
     /// passing. Sign-in is the exception: a 422 here has one specific cause and one specific
     /// remedy, and "Something went wrong" leaves the user tapping the same button forever.
+    ///
+    /// Only 422. A 409 is tempting to explain as "that email is already signed up with another
+    /// provider", but `docs/API.md` documents it as nothing more specific than a unique conflict —
+    /// and a guess shown to a user as a diagnosis is worse than the generic line.
     var signInMessage: String {
         switch kind {
         case .server(let status) where status == 422:
@@ -19,11 +23,6 @@ extension AppError {
             // moves a `disable:next` off the line it was meant for.
             String(
                 localized: "We couldn't verify that account. Try again, and choose Share My Email.",
-                bundle: .module
-            )
-        case .server(let status) where status == 409:
-            String(
-                localized: "That email is already signed up with a different provider.",
                 bundle: .module
             )
         default:

@@ -8,18 +8,28 @@ public struct Endpoint<Response: Decodable & Sendable>: Sendable {
     public var body: Data?
     public var requiresAuth: Bool
 
+    /// Whether a 401 should be met with a token refresh and one retry.
+    ///
+    /// Almost always yes. `POST /auth/logout` is the exception: refreshing to retry it rotates a
+    /// single-use token whose replacement is discarded a line later, and a refresh that fails
+    /// transiently would stop the logout being sent at all — leaving a live server session for
+    /// thirty days, which is the opposite of what the caller asked for.
+    public var retriesAfterRefresh: Bool
+
     public init(
         method: HTTPMethod,
         path: String,
         query: [URLQueryItem] = [],
         body: Data? = nil,
-        requiresAuth: Bool = true
+        requiresAuth: Bool = true,
+        retriesAfterRefresh: Bool = true
     ) {
         self.method = method
         self.path = path
         self.query = query
         self.body = body
         self.requiresAuth = requiresAuth
+        self.retriesAfterRefresh = retriesAfterRefresh
     }
 }
 

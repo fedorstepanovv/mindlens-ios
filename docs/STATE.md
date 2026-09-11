@@ -15,21 +15,19 @@ Last updated: 2026-09-11
 
 ## Where things stand
 
-`MindlensKit` builds under Swift 6 language mode against iOS 18 with strict concurrency, and so
-does the app target: `Config/Base.xcconfig` is the project's base configuration and the only
-definition of those settings (ADR 0009). **75 tests across 17 suites pass** in ~2s from the CLI.
-SwiftLint, swift-format and the doc-link check are clean over `Sources`, `Tests` and `mindlens`.
+`MindlensKit` and the app target both build under Swift 6 against iOS 18 with strict concurrency,
+from `Config/Base.xcconfig`, the only definition of those settings (ADR 0009). **79 tests across 19
+suites pass** in ~2s. SwiftLint, swift-format and the doc-link check are clean.
 
-**The app has UI, verified by running it** — the scene root switches on `SessionState`, and the
-signed-out branch is a sign-in screen on the system Sign in with Apple button, checked in light
-and dark at default and the largest accessibility text size. Onboarding and signed-in are stubs.
+**The app has UI, verified by running it** — the scene root switches on `SessionState` and the
+signed-out branch is a sign-in screen on the system Sign in with Apple button, checked in light and
+dark at default and the largest accessibility size. Onboarding and signed-in are stubs.
 
-Sign-in is wired end to end **except the credential exchange**: the server verifies Firebase ID
-tokens, and no Firebase SDK is linked. `UnavailableIdentityProvider` throws at that seam, so
-tapping a button reaches the boundary and stops there (ADR 0010).
+Sign-in is wired end to end **except the credential exchange**: no Firebase SDK is linked, so
+`UnavailableIdentityProvider` throws at that seam and a tap stops there (ADR 0010).
 
-Nothing reaches `main` except through the PR gate: build, test, launch, lint, doc links, build
-settings, then `Tools/swiftgate`. See ADR 0006.
+Nothing reaches `main` except the PR gate: test, build, launch, build settings, lint, doc links,
+and `Tools/swiftgate` alongside. See ADR 0006.
 
 ## Next action
 
@@ -45,7 +43,7 @@ Neither is in the repo. Everything else in Stage 1 is done and tested.
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Authentication | 🟡 | Screen, gate, repository, refresh transport, Keychain device GUID — all tested. Firebase exchange unlinked. |
+| 1 | Authentication | 🟡 | Screen, gate, repository and refresh transport tested (79 tests). Firebase exchange unlinked; `Persistence` has no test target, so the Keychain paths are unexercised. |
 | 2 | Dashboard + Quick Log | 🟡 | `DashboardModel` tested against a stub. No views, no real repository. |
 | 3 | Insights + Recaps | ⬜ | Swift Charts; polls for server-side generation. |
 | 4 | Onboarding + Paywall | ⬜ | Survey polling, RevenueCat. The Flutter login screen bundles this survey ahead of sign-in. |
@@ -54,18 +52,18 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 
 ## Known gaps
 
-- **No captured fixture for `/auth/apple` or `/auth/refresh` 200** — both need a live Firebase
-  token, so decoding is tested against inline bodies labelled as constructed, and swiftgate's
-  fixture rule is waived in `AuthEndpoints.swift`. Same for `mood_create_200.json`. Re-capture.
-- **A restore that fails transiently parks in `restoring` with a retry.** Correct, but only
-  because no user row is cached — with persistence, a cold launch should paint from disk.
-- **The local store is not observable.** `MoodRepository` returns a snapshot. Stage 2.
-- **No persistence layer yet.** SwiftData models, the outbox, and ADR 0003's pre-ship validation
-  gate are unstarted. Keychain is the only storage in use.
-- No `PrivacyInfo.xcprivacy`, entitlements, or usage descriptions. Required before submission,
-  and HealthKit alongside analytics needs a documented data boundary (Guideline 5.1.3).
-- Analytics records events only — no `identify`, so no user is named to a vendor. Revisit with a
-  real SDK. The Google button is unbranded: no system button exists and their mark is not an asset.
+- **No captured fixture for `/auth/apple` or `/auth/refresh` 200** — neither is scriptable, so
+  decoding runs against inline bodies labelled as constructed and swiftgate's fixture rule is
+  waived in `AuthEndpoints.swift`. Capture both by hand at the first real sign-in.
+- **`Persistence` has no test target**, so `KeychainItem.write` has never run — not in a test, and
+  not in the app, where sign-in throws at the identity provider before it asks for a GUID.
+- **A transient restore failure parks in `restoring` with a retry**, correct only because no user
+  row is cached; **the local store is not observable** either. SwiftData, the outbox and ADR 0003's
+  validation gate are all unstarted. Stage 2.
+- No `PrivacyInfo.xcprivacy`, entitlements or usage descriptions; HealthKit beside analytics needs
+  a documented data boundary (Guideline 5.1.3). All required before submission.
+- No brand colour or app icon — `AccentColor` is an empty colour set, so the app tints system
+  blue. Analytics records events only, and the Google button is unbranded.
 
 ## Deliberately not doing
 
@@ -76,5 +74,7 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 
 ## Open questions
 
-- Is the Firebase indirection intentional? The server verifies **Firebase** ID tokens, so the
-  app must carry the SDK to sign in with Apple. ADR 0010 makes either answer cheap.
+- Is the Firebase indirection intentional? The server verifies **Firebase** ID tokens, so the app
+  must carry the SDK to sign in with Apple at all. ADR 0010 makes either answer cheap to act on.
+- What is Mindlens's native palette? Flutter's `#5A6DF0` fails WCAG AA on white, and it ships no
+  dark mode, so both need deciding rather than copying.
