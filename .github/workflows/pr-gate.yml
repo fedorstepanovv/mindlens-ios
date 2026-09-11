@@ -164,7 +164,11 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          prompt: "/idiom-review"
+          # Not "/idiom-review": the slash form resolved to nothing on the runner and
+          # Claude exited with num_turns 0 and an empty modelUsage. Pointing at the file
+          # keeps one copy of the rubric without depending on skill dispatch.
+          prompt: |
+            Read .claude/skills/idiom-review/SKILL.md and follow it exactly.
           claude_args: |
             --max-turns 40
             --model claude-opus-5

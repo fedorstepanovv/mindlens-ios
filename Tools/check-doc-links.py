@@ -21,6 +21,11 @@ BACKTICKED = re.compile(r"`([^`\n]+)`")
 def is_checkable(token: str) -> bool:
     if not token.startswith(PATH_PREFIXES):
         return False
+    # A worktree is a transient second checkout. SKIP_DIRS already keeps it out of the
+    # file walk; references to paths inside one must be skipped for the same reason, or
+    # writing down that a worktree caused a bug becomes a bug.
+    if token.startswith(".claude/worktrees/"):
+        return False
     # Skip globs, placeholders and prose.
     return not any(c in token for c in "*<>? ")
 
