@@ -55,6 +55,9 @@ progress log this project has produced before.
 - `DateProvider.timeZone`, the seam that lets `TimeZone.current` be banned everywhere else.
 - ADR 0010 — identity exchange behind a protocol, auth repository in `Networking`.
 - The app's composition root (`AppContainer`) and session gate (`RootView`).
+- `#Preview` blocks on `SignInView` (signed out; dark at the largest accessibility size;
+  signing in; the 422 error) and `RootView` (restoring; unreachable server; signed out; signed
+  in), backed by `PreviewAuthRepository` and `User.preview` in `Models` under `#if DEBUG`.
 
 ### Changed
 - Split the memory system so no file grows without bound: `docs/STATE.md` is now

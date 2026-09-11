@@ -83,6 +83,21 @@ of state — which tree the scene root shows — so they are one `SessionModel`
 beside a `SessionModel` that have to stay in step. Splitting a flow to give each screen its own
 model is the same Cubit habit arriving from the other direction.
 
+## Previews
+
+Every view ships `#Preview` blocks for the states it can be in — not one preview of the happy
+path. The sign-in screen has four: signed out, dark at the largest accessibility size, signing
+in, and its one specific error. The second of those is the pair of conditions that broke the
+screen the first time it was run in a simulator; a preview would have shown it in the canvas.
+
+Preview doubles live **beside the protocol, in `Models`, under `#if DEBUG`** —
+`PreviewAuthRepository`, `User.preview`. Not in `TestSupport`, which is never linked into a
+feature or the app, and not privately inside a view file, where the app target cannot reach
+them for its own previews. `DEBUG`-only means they do not ship.
+
+A preview double is scripted (`.succeeds`, `.fails`, `.hangs`), never clever. The test stub in
+`TestSupport` records calls and counts things; a preview needs none of that.
+
 ## Repositories
 
 Protocol at the seam, concrete type behind it. Named for what it *is*, never `...Impl`.

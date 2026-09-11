@@ -1,4 +1,5 @@
 import Authentication
+import Core
 import DesignSystem
 import Models
 import SwiftUI
@@ -85,3 +86,23 @@ struct RootView: View {
         }
     }
 }
+
+// MARK: - Previews
+
+#if DEBUG
+#Preview("Restoring") {
+    RootView(session: SessionModel(auth: PreviewAuthRepository(restore: .hangs)))
+}
+
+#Preview("Can't reach the server") {
+    RootView(session: SessionModel(auth: PreviewAuthRepository(restore: .fails(AppError(kind: .offline)))))
+}
+
+#Preview("Signed out") {
+    RootView(session: SessionModel(auth: PreviewAuthRepository()))
+}
+
+#Preview("Signed in") {
+    RootView(session: SessionModel(auth: PreviewAuthRepository(restore: .succeeds(.preview))))
+}
+#endif

@@ -1,6 +1,7 @@
 import AuthenticationServices
 import Core
 import DesignSystem
+import Models
 import SwiftUI
 
 /// The signed-out screen.
@@ -226,3 +227,32 @@ public struct SignInView: View {
         }
     }
 }
+
+// MARK: - Previews
+
+#if DEBUG
+#Preview("Signed out") {
+    SignInView(model: SessionModel(auth: PreviewAuthRepository()))
+}
+
+/// The pair of conditions that broke this screen the first time it was run.
+#Preview("Dark, largest text") {
+    SignInView(model: SessionModel(auth: PreviewAuthRepository()))
+        .preferredColorScheme(.dark)
+        .environment(\.dynamicTypeSize, .accessibility5)
+}
+
+#Preview("Signing in") {
+    let model = SessionModel(auth: PreviewAuthRepository(signIn: .hangs))
+    SignInView(model: model)
+        .task { await model.signInWithGoogle() }
+}
+
+#Preview("Could not verify") {
+    let model = SessionModel(
+        auth: PreviewAuthRepository(signIn: .fails(AppError(kind: .server(status: 422))))
+    )
+    SignInView(model: model)
+        .task { await model.signInWithGoogle() }
+}
+#endif
