@@ -32,8 +32,8 @@ Nothing reaches `main` except the PR gate: test, build, launch, build settings +
 
 ## Next action
 
-`docs/features/auth.md`, step 4: Google Sign-In through the same seam. Step 5 (live auth fixtures)
-needs a proxy on a real sign-in and can go first if one is set up.
+`docs/features/auth.md`, step 4, second half: the `REVERSED_CLIENT_ID` URL scheme into
+`mindlens/Info.plist`, then a real "Continue with Google". The code is wired and never run.
 
 ## Blocked on
 
