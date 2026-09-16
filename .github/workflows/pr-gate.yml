@@ -156,6 +156,17 @@ jobs:
       # what bills it to the Claude subscription behind CLAUDE_CODE_OAUTH_TOKEN.
       # continue-on-error so a rate limit becomes a reported blocker with a re-run
       # instruction, rather than a bare red job with no explanation on the PR.
+      # The token was once stored with a leading space. The action masked it, hid the
+      # 401 behind "output hidden for security", and three runs failed with no cause.
+      # Compare, never print.
+      - name: Check the token is not padded
+        if: steps.prep.outputs.review == 'true'
+        env:
+          TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          [ -n "$TOKEN" ] || { echo "::error::CLAUDE_CODE_OAUTH_TOKEN is not set."; exit 1; }
+          [ "$TOKEN" = "$(printf '%s' "$TOKEN" | tr -d '[:space:]')" ] || { echo "::error::CLAUDE_CODE_OAUTH_TOKEN has leading or trailing whitespace — re-set it with the value trimmed."; exit 1; }
+
       - name: Review for Flutter-isms
         id: reviewer
         if: steps.prep.outputs.review == 'true'

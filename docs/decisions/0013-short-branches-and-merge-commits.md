@@ -14,11 +14,12 @@ ADR 0006 says the gate's exit code, "wired to branch protection, is what actuall
 merge". It is wired to nothing. The repository is private on a plan that answers 403 to
 branch protection and rulesets alike, so the gate has never been able to stop a merge.
 
-PR #1 is red for a reason that is neither a code finding nor a flake. Its reviewer step
-finished in one turn with no model usage and no cost, and the action that runs it restores
-`.claude/` from `origin/main` because the pull request head is untrusted — and `main` has no
-`idiom-review` skill. The gate correctly reported `gate/review-incomplete`. And `main`'s own
-gate reads an `ANTHROPIC_API_KEY` that was never created. No first pull request can be reviewed.
+PR #1 was red for a reason that was neither a code finding nor a flake. Its reviewer step
+finished in one turn with no model usage: the stored OAuth token had a leading space and the
+API answered 401, which the action hid behind "output hidden for security". And the action
+restores `.claude/` from `origin/main` because a pull request head is untrusted, so the first
+PR to carry the rubric could not be reviewed by it. `main`'s own gate read an
+`ANTHROPIC_API_KEY` that will never exist — the review bills to the subscription (ADR 0012).
 
 ## Decision
 
@@ -43,11 +44,11 @@ check and this paragraph is superseded.
 (`.claude/skills/pr/SKILL.md`) from `.github/PULL_REQUEST_TEMPLATE.md`. Branches are deleted
 on merge.
 
-**The landing order for what exists now.** `base-setup` first, as a pull request to `main`,
-carrying a copy of the `idiom-review` skill. Its reviewer cannot run — no key — so it lands by
-override, judged on build, tests, launch, lint and the doc checks. Then PR #1 with `origin/main`
-merged in: the skill is on `main` now, so its reviewer is the first that can run. `test/gate-live`
-is deleted, unmerged.
+**The landing order for what exists now.** PR #1 first: with a valid token, the reviewer's
+output shown, and a prompt that falls back to the PR's own copy of the rubric, it was the first
+pull request the reviewer could judge — it passed, with two warnings. Then `base-setup` with
+`origin/main` merged in, so the same reviewer judges what PR #1 did not contain. No override.
+`test/gate-live` is deleted, unmerged.
 
 ## Consequences
 
@@ -57,8 +58,8 @@ is deleted, unmerged.
   not only `main`. 0006 collided between sessions; 0010 collided between branches.
 - `main` stays unprotected. `git push origin main` still works; the convention is the only
   thing that says not to, and `/pr` is the only path that follows it.
-- The first override is the foundation's, and the only one this order needs. A review that did
-  not run is not evidence the code is clean; the reason is on the record, and the next PR is reviewed.
+- No override was needed. A review that did not run is not evidence the code is clean — the fix
+  was to make it run, and the reviewer's output is shown so the next failure has a cause.
 
 ## What would change this
 
