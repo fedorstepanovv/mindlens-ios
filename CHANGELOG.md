@@ -24,7 +24,9 @@ progress log this project has produced before.
   correctness.
 - `Tools/check-doc-links.py` — fails on any doc referencing a path that does not exist.
 - `Tools/capture-fixtures.sh` — re-captures API fixtures from the live server.
-- `Tools/swiftgate` and the PR gate workflow.
+- `Tools/swiftgate` and the PR gate workflow — deterministic Flutter-ism rules plus an
+  idiom review that runs as Claude Code on the subscription, not the API (ADR 0006, 0012).
+  `.claude/skills/idiom-review/` carries the rubric; the gate keeps the exit code.
 - `Config/Base.xcconfig` with the production API URL; secrets kept out of git.
 - `Tools/check-build-settings.sh` — resolves the app's build settings and asserts them,
   so a claim about Swift version or deployment target cannot outlive the setting.

@@ -28,13 +28,13 @@ and a fresh clone get `UnavailableIdentityProvider` instead, and a Release build
 launch (ADR 0010, `docs/features/auth.md`). Every sign-in is a real production account.
 
 Nothing reaches `main` except a PR through the gate — test, build, launch, settings + team + entitlement
-(Debug only), lint, doc links, `Tools/swiftgate` (ADR 0006). **Nothing has yet**: `main` is five commits old,
-and it cannot be protected on this plan, so a red gate binds by `/pr` convention, not mechanism (ADR 0013).
+(Debug only), lint, doc links, `Tools/swiftgate` with its idiom review run by Claude Code on the subscription
+(ADR 0006, 0012). `main` cannot be protected on this plan, so a red gate binds by `/pr` convention (ADR 0013).
 
 ## Next action
 
-Land before branching again — `base-setup` → `main` as a PR, then PR #1 merged with it (ADR 0013 has the
-order, and why #1 is red). Then `feature/auth` for `docs/features/auth.md` step 4: the `REVERSED_CLIENT_ID`
+Land `base-setup` (PR #2 — PR #1 is in, so the subscription reviewer judges it), then `tooling/branch-guards`
+makes ADR 0013 mechanical. Then `feature/auth` for `docs/features/auth.md` step 4: the `REVERSED_CLIENT_ID`
 URL scheme into `mindlens/Info.plist`, then a real "Continue with Google" — wired, never run.
 
 ## Blocked on
