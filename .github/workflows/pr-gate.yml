@@ -46,6 +46,10 @@ jobs:
             | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next(x['udid'] for v in d.values() for x in v if x['name'].startswith('iPhone')))")
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
           xcrun simctl list devices available | grep -m1 "$udid"
+          # Boot it now, so it is warm by the time the launch test runs. Left to xcodebuild,
+          # the boot happened inside the first UI test, took anywhere from 73 to 928 seconds
+          # on these runners, and 3 of 5 runs failed on whichever test launched first.
+          xcrun simctl bootstatus "$udid" -b
 
       - name: Test MindlensKit
         working-directory: Packages/MindlensKit
@@ -71,10 +75,13 @@ jobs:
       - name: Launch the app
         run: |
           set -o pipefail
+          # A launch that fails on a starved runner is retried; a launch that crashes
+          # fails all three times, which is the case the test exists for.
           xcodebuild test \
             -scheme mindlens \
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -only-testing:mindlensUITests \
+            -retry-tests-on-failure -test-iterations 3 \
             -quiet
 
       - name: Verify the settings the documents claim

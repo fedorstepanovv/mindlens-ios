@@ -21,7 +21,7 @@ final class LaunchSmokeTests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(
-            app.buttons["Continue with Google"].waitForExistence(timeout: 30),
+            app.buttons["Continue with Google"].waitForExistence(timeout: 60),
             "The app did not reach the sign-in screen. With no stored session the gate should "
                 + "resolve from .restoring to .signedOut and show SignInView."
         )
@@ -43,7 +43,7 @@ final class LaunchSmokeTests: XCTestCase {
         app.launch()
 
         let apple = app.buttons["Continue with Apple"]
-        XCTAssertTrue(apple.waitForExistence(timeout: 30), "Sign in with Apple is missing.")
+        XCTAssertTrue(apple.waitForExistence(timeout: 60), "Sign in with Apple is missing.")
         XCTAssertTrue(app.buttons["Continue with Google"].exists, "Continue with Google is missing.")
 
         // Both controls must still be tappable targets, not collapsed remnants of themselves.
