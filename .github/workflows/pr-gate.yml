@@ -80,6 +80,9 @@ jobs:
       - name: Verify the settings the documents claim
         run: Tools/check-build-settings.sh "id=${{ steps.sim.outputs.udid }}"
 
+      # Not on the runner image, despite being on every developer machine here.
+      # This tracks latest: a SwiftLint release that adds a default rule can turn a
+      # green branch red with no code change. Pin it if that ever happens.
       - name: Install SwiftLint
         run: brew install swiftlint
 
@@ -102,6 +105,8 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      # The Claude Code action wants this for its own GitHub auth handshake.
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -138,19 +143,55 @@ jobs:
         working-directory: Tools/swiftgate
         run: go build -o "$RUNNER_TEMP/swiftgate" .
 
-      - name: Review
+      # Deterministic rules run first and cost nothing. They also produce the brief the
+      # reviewer reads, and tell the next step whether a review is worth starting.
+      - name: Prepare the review
+        id: prep
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # GITHUB_SHA is the merge commit on a pull_request event, which has no
-          # permanent URL. Findings should link to the branch the author can edit.
+          SWIFTGATE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: '"$RUNNER_TEMP/swiftgate" prepare --pr ${{ github.event.pull_request.number }}'
+
+      # The judgement half. Running it as Claude Code rather than a direct API call is
+      # what bills it to the Claude subscription behind CLAUDE_CODE_OAUTH_TOKEN.
+      # continue-on-error so a rate limit becomes a reported blocker with a re-run
+      # instruction, rather than a bare red job with no explanation on the PR.
+      - name: Review for Flutter-isms
+        id: reviewer
+        if: steps.prep.outputs.review == 'true'
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Three runs died at turn 1 with an empty modelUsage and the cause hidden.
+          # The output is the review's own reasoning over a private repo's diff; showing
+          # it costs nothing and is the only way to read why the model was never called.
+          show_full_output: true
+          # Not "/idiom-review": the slash form resolved to nothing on the runner and
+          # Claude exited with num_turns 0 and an empty modelUsage. Pointing at the file
+          # keeps one copy of the rubric without depending on skill dispatch.
+          # The action restores .claude/ from main because a PR head is untrusted, and
+          # keeps the PR's own copy under .claude-pr/. Until the skill is on main, that
+          # copy is the only one on the runner; once it is, the first path wins.
+          prompt: |
+            Read .claude/skills/idiom-review/SKILL.md and follow it exactly. If that file
+            does not exist, Glob for .claude-pr/**/idiom-review/SKILL.md, read the match,
+            and follow that one exactly instead.
+          claude_args: |
+            --max-turns 40
+            --model claude-opus-5
+            --allowedTools "Read,Grep,Glob,Write"
+
+      - name: Decide
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SWIFTGATE_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          "$RUNNER_TEMP/swiftgate" \
-            --pr ${{ github.event.pull_request.number }} \
+          "$RUNNER_TEMP/swiftgate" decide \
             --comment \
             --inline \
-            --verbose \
+            --reviewer-ran ${{ steps.reviewer.outcome == 'success' }} \
             --json "$RUNNER_TEMP/findings.json"
 
       - name: Upload findings
@@ -158,7 +199,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: swiftgate-findings
-          path: ${{ runner.temp }}/findings.json
+          path: |
+            ${{ runner.temp }}/findings.json
+            .swiftgate/run/
           if-no-files-found: ignore
 
   gate:

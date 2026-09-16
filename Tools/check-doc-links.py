@@ -21,6 +21,11 @@ BACKTICKED = re.compile(r"`([^`\n]+)`")
 def is_checkable(token: str) -> bool:
     if not token.startswith(PATH_PREFIXES):
         return False
+    # A worktree is a transient second checkout. SKIP_DIRS already keeps it out of the
+    # file walk; references to paths inside one must be skipped for the same reason, or
+    # writing down that a worktree caused a bug becomes a bug.
+    if token.startswith(".claude/worktrees/"):
+        return False
     # Skip globs, placeholders and prose.
     return not any(c in token for c in "*<>? ")
 
@@ -129,6 +134,11 @@ def check_locations(docs: list[Path]) -> list[str]:
 
 def main() -> int:
     problems: list[str] = []
+    # A `../` target points at a sibling repository — the Flutter app, the server. Those
+    # sit beside this one on a working machine, but not in a CI checkout or a git
+    # worktree. Report them, don't fail on them: their absence says nothing about
+    # whether this repo's docs are honest.
+    external: list[str] = []
     docs = [md for md in sorted(ROOT.rglob("*.md")) if not SKIP_DIRS.intersection(md.parts)]
     for md in docs:
         rel = md.relative_to(ROOT)
@@ -139,8 +149,16 @@ def main() -> int:
             targets += [t for t in BACKTICKED.findall(line) if is_checkable(t)]
             for target in targets:
                 # A path may be written relative to the repo root or to the file itself.
-                if not any((base / target).resolve().exists() for base in (ROOT, md.parent)):
-                    problems.append(f"{rel}:{line_no}  →  {target}")
+                if any((base / target).resolve().exists() for base in (ROOT, md.parent)):
+                    continue
+                entry = f"{rel}:{line_no}  →  {target}"
+                (external if target.startswith("../") else problems).append(entry)
+
+    if external:
+        print("Sibling-repo references not resolvable here (expected in CI and worktrees):\n")
+        for e in external:
+            print(f"  {e}")
+        print()
 
     oversized = check_sizes()
     if oversized:
