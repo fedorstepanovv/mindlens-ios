@@ -19,6 +19,12 @@ account lands in onboarding; a returning one on the dashboard.
 - **One `SessionModel`** for restore, sign-in and sign-out. No `SignInModel` beside it.
 - The Firebase exchange sits behind `IdentityAuthenticating` in `Core`; the SDK is
   app-target only. `APIAuthRepository` lives in `Networking` so the DTO never leaves it (ADR 0010).
+- **The plist decides, not the build.** `GoogleService-Info.plist` is gitignored, so CI and a
+  fresh clone launch without it: the composition root configures Firebase only when the file is
+  bundled and keeps `UnavailableIdentityProvider` otherwise. Debug only — a Release build with
+  no plist is misconfigured and hits `preconditionFailure`, as a missing API URL does.
+- Firebase's own error is classified in the provider, once: `.networkError` → `.offline`,
+  everything else `.unknown` with the code in the diagnostic. Feature code never sees `NSError`.
 - Copy is the product's opening line ("See what’s behind / your good and bad days"). Flutter's
   "One last step" presumes the Stage 4 survey, which ships later.
 - A transient restore failure parks in `restoring` with a retry. Only a server-rejected session
@@ -40,44 +46,55 @@ account lands in onboarding; a returning one on the dashboard.
 
 1. ✅ Sign-in screen and session gate, verified in the simulator at both text sizes and appearances.
 2. ✅ `APIAuthRepository`, `AuthTokenRefreshTransport`, `KeychainDeviceIdentity`; 79 tests; gate launches the app.
-3. 🟡 **Link Firebase Auth and replace the stand-in**
-   entries:
-   - Add `GoogleService-Info.plist` to the app target and configure Firebase at launch.
-   - Add Firebase Auth by SPM to the **app target only** — no package target imports it.
-   - Implement `IdentityAuthenticating` in the app target: an `OAuthProvider` credential for
-     `apple.com` from the identity token and raw nonce → `signIn(with:)` → the ID token. A
-     user cancelling throws `CancellationError`. Delete `UnavailableIdentityProvider`.
-   - Enable the Sign in with Apple capability.
-   files: `mindlens/AppContainer.swift`, `mindlens/mindlensApp.swift`, `mindlens.xcodeproj/project.pbxproj`,
-   FirebaseIdentityProvider.swift *(new)*, mindlens.entitlements *(new)*
-   ready: a real Sign in with Apple lands on the signed-in stub, and relaunching skips the
-   sign-in screen. `swift test` still runs with no credentials.
-   blocked on: the plist and the capability — both from Fedir, neither in the repo.
-4. ⬜ **Google Sign-In through the same seam**
-   entries:
-   - Add GoogleSignIn by SPM to the app target; present it, exchange for a Firebase
-     credential, return the ID token. Cancel throws `CancellationError`.
-   - Register the reversed client ID URL scheme.
-   files: FirebaseIdentityProvider.swift, `mindlens/Info.plist`
+3. ✅ Firebase Auth linked (app target only), `FirebaseIdentityProvider` does the Apple exchange,
+   entitlement and team asserted by the gate. A real sign-in lands signed in; relaunch restores.
+   The plist for the native bundle ID lives in the **production** Firebase project and is
+   gitignored; without it the build keeps the stand-in (Debug) or fails at launch (Release).
+4. 🟡 **Google Sign-In through the same seam** — code done, never run. `GoogleSignIn-iOS` 10 is
+   linked to the app target; `FirebaseIdentityProvider.signInWithGoogle()` presents from the key
+   window, exchanges through `GoogleAuthProvider`, and maps a closed sheet to `CancellationError`.
+   The client ID comes from the bundled plist at configure time — no `GIDClientID` copy in
+   Info.plist. The SDK would raise if the redirect scheme were missing; the provider checks first
+   and throws a logged `AppError` instead. No `.onOpenURL`: on iOS 18 the redirect returns through
+   `ASWebAuthenticationSession`, never an app URL open.
+   entries: `FirebaseIdentityProvider.signInWithGoogle()` · `SignInView.googleButton` ·
+   `CFBundleURLTypes` in `mindlens/Info.plist` (not there yet).
    ready: "Continue with Google" completes and lands signed in.
-5. ⬜ **Capture the two auth fixtures and drop the waiver**
-   entries:
-   - During a real sign-in, save the `/auth/apple` 200 and a `/auth/refresh` 200 to `Packages/MindlensKit/Sources/TestSupport/Fixtures/`.
-   - Point the decoding tests at them; delete the inline bodies and the swiftgate waiver.
-   files: `Packages/MindlensKit/Tests/NetworkingTests/AuthContractTests.swift`, `Packages/MindlensKit/Sources/Networking/AuthEndpoints.swift`
+   blocked on: the `REVERSED_CLIENT_ID` from the production plist, pasted into `mindlens/Info.plist`
+   as a URL scheme — a public value the repo's read rules keep from the agent. Then a real run.
+5. ⬜ **Capture the two auth fixtures and drop the waiver** — save the `/auth/apple` 200 and a
+   `/auth/refresh` 200 during a real sign-in, point the decoding tests at them, delete the
+   inline bodies. Both are one-shot from the client (the refresh token rotates), so capture them
+   off the app's own traffic through a proxy — never `curl /auth/refresh` beside a live session.
+   entries: the waiver in `Packages/MindlensKit/Sources/Networking/AuthEndpoints.swift` ·
+   `AuthResponseDecodingTests` · `Tools/capture-fixtures.sh` (which cannot script these two).
+   files: `Packages/MindlensKit/Sources/TestSupport/Fixtures/`, `Packages/MindlensKit/Tests/NetworkingTests/AuthContractTests.swift`
    ready: `Tools/swiftgate --static-only` passes with no waiver; the fixtures README lists both as live.
-6. ⬜ `Persistence` test target for the Keychain paths. Shape it once 3 has run for real.
+6. ⬜ `Persistence` test target for the Keychain paths, which have now run for real but never
+   under a test.
 
 ## Journal
 
-- 2026-09-10 — Foundation: `TokenRefresher`, `APIClient`, Keychain token storage, `SessionState`.
 - 2026-09-11 — Stage 1 built end to end behind the identity seam. A 422 is a third envelope
   shape — `status`, not `statusCode` — captured live.
-- 2026-09-11 — Launch crash: `INFOPLIST_KEY_<custom>` is silently dropped by Xcode; a partial
-  `Info.plist` instead. The guard now reads the built bundle, and the gate launches the app.
 - 2026-09-11 — Running it broke the Apple button at accessibility sizes. It needs a width, an
   *exact* height inside 44–64, and a rebuild on a live text-size change.
 - 2026-09-11 — Review: two `TokenRefresher` bugs (a stale refresh over a new session; `defer`
   unregistering the wrong task). The test that claimed to cover them never called the
   transport. Fixed, with tests that make the interleaving instead of racing for it.
 - 2026-09-11 — Google button paired to Apple's per the HIG. Previews for every state.
+- 2026-09-11 — Firebase Auth linked, `FirebaseIdentityProvider` written, entitlement signed;
+  the stand-in stays as the no-plist fallback since CI never has one. `codesign` reads an
+  *empty* set off a simulator build — the truth is `__TEXT,__entitlements`, which the gate now
+  decodes. Open: sign-out leaves the Firebase user signed in (no sign-out on the seam; account
+  deletion will want it, plus the authorization code). SPM fetches every Firebase binary, ~1 GB.
+- 2026-09-11 — First real run. `-7022` from AuthKit: no `DEVELOPMENT_TEAM`, so Xcode guessed a
+  team that did not own the App ID. Then a 422 nothing logged — `AppError.diagnostic` had never
+  been read; `Logger(category:)` in `Core` and `SessionModel.failed()` fix that. The 422 was a
+  plist from a second Firebase project; the API verifies only production's.
+- 2026-09-11 — Native bundle ID registered as a second iOS app in the production project. First
+  real sign-in landed on the signed-in stub; relaunch restored the session (Keychain →
+  `GET /users`). Step 3 ticked. Sign-ins hit production accounts — there is no other backend.
+- 2026-09-11 — Google wired (step 4), unrun: `GoogleSignIn-iOS` 10.0.0 fits Firebase 12.19's
+  graph (GTMSessionFetcher `3.3..<6`). The SDK asserts the redirect scheme with an ObjC
+  exception at the tap; the provider derives it from the client ID and throws first.

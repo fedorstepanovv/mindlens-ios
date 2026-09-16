@@ -13,8 +13,27 @@ import Persistence
 final class AppContainer {
     let session: SessionModel
 
+    /// Production wiring. Firebase when a `GoogleService-Info.plist` is bundled; otherwise the
+    /// stand-in that throws — which is every CI run and every fresh clone, since the plist is a
+    /// credential and is gitignored. Same build either way; the file decides.
+    ///
+    /// Debug only. A Release build with no plist is misconfigured, not missing a feature, and it
+    /// fails the way `AppConfiguration.apiBaseURL` does: at once, before anyone taps Sign in
+    /// and reads "something went wrong" on every attempt.
+    convenience init() {
+        if let firebase = FirebaseIdentityProvider.configuringFirebase() {
+            self.init(identity: firebase)
+        } else {
+            #if DEBUG
+            self.init(identity: UnavailableIdentityProvider())
+            #else
+            preconditionFailure("GoogleService-Info.plist is not in the bundle; this build cannot sign in.")
+            #endif
+        }
+    }
+
     init(
-        identity: any IdentityAuthenticating = UnavailableIdentityProvider(),
+        identity: any IdentityAuthenticating,
         analytics: any AnalyticsRecording = .noop
     ) {
         let baseURL = AppConfiguration.apiBaseURL

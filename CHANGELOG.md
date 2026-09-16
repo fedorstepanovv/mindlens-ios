@@ -58,14 +58,38 @@ progress log this project has produced before.
 - ADR 0010 — identity exchange behind a protocol, auth repository in `Networking`.
 - **One file per feature** — `docs/features/<name>.md` from `docs/features/0000-template.md`:
   what the user can do and when it is done, decisions settled so they are not reinvented,
-  the next few steps with `entries` / `files` / `ready` and inline status, and an append-only
+  the next few steps with `entries` (entry points) / `files` / `ready` and inline status, and an append-only
   journal. Capped at 100 lines. `/feature-start` takes the first open step, `/feature-done`
   ticks it, and the stop hook accepts a feature-file update. `docs/features/auth.md` is the
-  first (ADR 0011).
+  first (ADR 0011). `Tools/check-doc-links.py` fails when a feature file has no stage row in
+  `docs/STATE.md`, or when the two disagree about its status.
 - The app's composition root (`AppContainer`) and session gate (`RootView`).
 - `#Preview` blocks on `SignInView` (signed out; dark at the largest accessibility size;
   signing in; the 422 error) and `RootView` (restoring; unreachable server; signed out; signed
   in), backed by `PreviewAuthRepository` and `User.preview` in `Models` under `#if DEBUG`.
+- **Firebase Auth, linked** (`firebase-ios-sdk` 12.19, `FirebaseAuth` product, app target
+  only). `FirebaseIdentityProvider` does the Apple → Firebase → ID-token exchange behind
+  `IdentityAuthenticating`, returning the email Firebase keeps from the first authorization;
+  Firebase's network error maps to `.offline` at that boundary. `AppContainer.init()` configures
+  Firebase only when `GoogleService-Info.plist` is bundled — it is gitignored, so CI never has
+  one — and keeps `UnavailableIdentityProvider` otherwise; in Release a missing plist is a
+  `preconditionFailure`. `mindlens/mindlens.entitlements` grants Sign in with Apple, and
+  `Tools/check-build-settings.sh` now decodes the built binary's `__TEXT,__entitlements`
+  section to prove it shipped — `codesign` reads an empty set off a simulator build.
+  Verified live: with the native bundle ID registered as a second iOS app in the production
+  Firebase project, Sign in with Apple lands on the signed-in stub and a relaunch restores the
+  session. `DEVELOPMENT_TEAM` is now set and asserted — unset, Xcode guessed a team that did
+  not own the App ID and AuthKit answered `-7022`.
+- `Logger(category:)` in `Core` — one subsystem (the bundle ID), a category per concern.
+  `SessionModel` now logs every failure that reaches `error` with its diagnostic, through one
+  `failed()` so no site can map without logging. `AppError.diagnostic` had been written
+  everywhere and read nowhere: a 422's server message never left the process.
+- `docs/API.md` — the API verifies Firebase tokens against **one** project, production's, and
+  there is no dev backend; `/auth/apple` has two distinct 422 messages.
+- Pull request conventions: `.github/PULL_REQUEST_TEMPLATE.md`, the `/pr` skill
+  (`.claude/skills/pr/SKILL.md`) to open, check and land one, and ADR 0013 — one branch per
+  feature step, merge commits, a red gate never merged. `main` cannot be protected on this
+  plan, so the gate binds by convention; ADR 0006 had assumed otherwise.
 
 ### Changed
 - Split the memory system so no file grows without bound: `docs/STATE.md` is now

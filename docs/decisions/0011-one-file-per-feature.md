@@ -20,9 +20,9 @@ sections and nothing else:
 
 - **What the user can do**, and a checkable "done when".
 - **Decisions — settled, do not reopen.** One line each. This is the anti-reinvention list.
-- **Steps**, each self-contained with its status inline: `entries` (the concrete changes),
-  `files`, `ready` (how you would check it), `blocked on` if it is. Two or three planned
-  ahead, no more. Done steps shrink to one line.
+- **Steps**, each self-contained with its status inline: `entries` (the entry points — the
+  screens, types or endpoints a session opens first), `files`, `ready` (how you would check
+  it), `blocked on` if it is. Two or three planned ahead, no more. Done steps shrink to one line.
 - **Journal** — append-only, one dated line per entry, what was done or discovered.
 
 **Capped at 100 lines**, by `Tools/check-doc-links.py`, and the journal is what gives way:

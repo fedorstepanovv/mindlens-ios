@@ -28,9 +28,10 @@ one line; the open ones carry the full shape. If a step will not fit this shape 
 big or not concrete enough — split it.
 
 1. ✅ One line for a finished step.
-2. 🟡 **Title of the step in progress**
-   entries:
-   - The concrete changes, one sentence each. What, not how.
+2. 🟡 **Title of the step in progress** — one sentence of intent if the title is not enough.
+   entries: where the work enters — the screens, types, functions or endpoints a session
+   opens first, and where the user meets the result. Not a list of changes: the title and
+   the ready condition say what; the entries say where.
    files: existing files by full path; new files by name with *(new)* — the link check
    fails on a path that does not exist yet.
    ready: what must be true, and how you would check it.

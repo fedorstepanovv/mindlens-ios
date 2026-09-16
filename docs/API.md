@@ -64,6 +64,18 @@ Sign in with Apple/Google (native)
 The iOS app therefore needs the Firebase Auth SDK. (Open question in `STATE.md`: whether
 this indirection is intentional or historical.)
 
+**One Firebase project, and it is production's.** The server's Admin SDK verifies against a
+single project (`firebase.projectId` in its env), and there is no dev backend — the Flutter app's
+`.env` carries one `API_URL`, production. So the app's bundle ID must be registered as an iOS app
+*in that project* and ship that project's `GoogleService-Info.plist`; a token from any other
+project is a 422 `invalid token provided`, indistinguishable at the client from a bad token.
+Learned the hard way on 2026-09-11 with a plist from a second project.
+
+`/auth/apple` answers 422 with **two different messages** (`auth.service.ts`): `invalid token
+provided` when `verifyIdToken` throws, and `email required for new Apple sign-in (Apple did not
+provide one)` when a *new* account has no email in the token or the body. The client shows one
+copy for both; the message is in `AppError.diagnostic` and the session log.
+
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | POST | `/auth/apple` | public | Exchange Firebase ID token for JWT pair |

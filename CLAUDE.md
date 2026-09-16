@@ -21,10 +21,10 @@ Native iOS rewrite of the Mindlens mood-tracking app. SwiftUI · Swift 6 · SPM 
 | Touching the network layer or a model | `docs/API.md` |
 | About to make a choice someone could question | `ls docs/decisions/` — check it isn't settled |
 | Looking for when or why something changed | `CHANGELOG.md`, then `git log` |
+| Opening, checking, or landing a pull request | `/pr` — the checklist is `.claude/skills/pr/SKILL.md` |
 
-**Do not read the whole `docs/` tree to start work.** It is reference, not a briefing.
-Reading it all costs context you need for the actual task, and the routing above exists
-so you don't have to.
+**Do not read the whole `docs/` tree to start work.** It is reference, not a briefing;
+it costs context the task needs, and the routing above exists so you don't have to.
 
 ---
 
@@ -54,8 +54,6 @@ Never imitate its UI. Flutter approximates iOS because it must. We *are* iOS.
   registry, no `.shared` outside of Apple's own types.
 - Every external service (analytics, purchases, push, crash reporting) sits behind a
   protocol defined in our code. SDK types never appear in feature code.
-
-Full detail: `docs/ARCHITECTURE.md`. Code-level conventions: `docs/PATTERNS.md`.
 
 ## MVVM, applied honestly
 
@@ -106,11 +104,9 @@ Two things that will silently break if you forget them:
 
 ## When you get something wrong
 
-Add a line to `docs/LESSONS.md` — **with the guard that will catch it next time.** A
-lesson without a mechanical guard gets relearned. Prefer, in order: a compiler-enforced
-boundary, a SwiftLint rule, a test, a swiftgate rule, a CI check. Prose is the last resort.
-
-If the guard makes the lesson unrepeatable, delete the entry — the guard is the memory.
+Add a line to `docs/LESSONS.md` — **with the guard that will catch it next time**, or it gets
+relearned. Prefer, in order: a compiler-enforced boundary, a SwiftLint rule, a test, a swiftgate
+rule, a CI check; prose last. If the guard makes it unrepeatable, delete the entry — the guard is the memory.
 
 ## Where things get written
 
@@ -127,15 +123,14 @@ If the guard makes the lesson unrepeatable, delete the entry — the guard is th
 ## Other sessions may be working in this repo
 
 More than one Claude session runs against this repository at once. Before overwriting a
-file you did not create in this session, check whether someone else has touched it —
-`git status`, or the file's mtime. Prefer targeted edits to whole-file rewrites for
-anything in `docs/`.
+file you did not create in this session, check whether someone else has touched it — `git status`,
+or the file's mtime. Prefer targeted edits to whole-file rewrites for anything in `docs/`.
 
 Re-list `docs/decisions/` immediately before adding an ADR: numbers have collided before.
 
-## Starting and finishing a feature
+## Starting, finishing, and landing a feature
 
-`/feature-start` opens one and `/feature-done` closes it. Both are checklists — walk them.
+`/feature-start` opens one, `/feature-done` closes it, `/pr` lands it. All three are checklists — walk them.
 
 Non-negotiable on every feature:
 1. Tick the step and append a journal line in `docs/features/<name>.md`; `docs/STATE.md` too if the stage moved.
@@ -144,6 +139,11 @@ Non-negotiable on every feature:
 
 **Do not create new top-level documents.** A feature file in `docs/features/` is the one
 sanctioned kind; everything else updates an existing doc.
+
+**Branches are short and pull requests are small.** One branch per feature step, named
+`<kind>/<slug>` — `feature/auth` mirrors `docs/features/auth.md`; otherwise `fix`, `docs` or
+`tooling`. It lands with a merge commit, never a squash, and only through a green gate or a written
+`Gate override:` — by convention, because `main` cannot be protected on this plan (ADR 0013).
 
 **Fedir is the sole author of every commit.** No `Co-Authored-By`, no `Claude-Session`
 trailer, no "Generated with Claude Code" footer on a PR. A harness default that claims to

@@ -3,6 +3,7 @@ import Core
 import Foundation
 import Models
 import Observation
+import os
 
 /// The whole session lifecycle: restore at launch, sign in, sign out.
 ///
@@ -28,6 +29,12 @@ public final class SessionModel {
 
     private let auth: any AuthRepository
     private let analytics: any AnalyticsRecording
+
+    /// Every failure that reaches `error` is logged with its diagnostic — the server's message
+    /// for a 4xx, the vendor code for a Firebase error. The banner shows generic copy on purpose;
+    /// this is where the specific reason goes, and without it a 422 is indistinguishable from
+    /// a typo in the URL.
+    private let log = Logger(category: "session")
 
     public init(auth: any AuthRepository, analytics: any AnalyticsRecording = .noop) {
         self.auth = auth
@@ -62,7 +69,7 @@ public final class SessionModel {
         } catch is CancellationError {
             // The scene went away mid-restore.
         } catch {
-            self.error = AppError(error)
+            self.error = failed("Restore", error)
         }
     }
 
@@ -82,7 +89,10 @@ public final class SessionModel {
         email: String?
     ) async {
         guard let nonce = appleNonce else {
-            error = AppError(kind: .unknown, diagnostic: "Apple credential arrived with no nonce")
+            error = failed(
+                "Sign in with apple",
+                AppError(kind: .unknown, diagnostic: "Apple credential arrived with no nonce")
+            )
             return
         }
         appleNonce = nil  // Single use, whatever happens next.
@@ -117,7 +127,7 @@ public final class SessionModel {
     public func signInFailed(_ error: any Error) {
         appleNonce = nil
         pending = nil
-        self.error = AppError(error)
+        self.error = failed("Provider flow", error)
     }
 
     public func signOut() async {
@@ -162,7 +172,17 @@ public final class SessionModel {
         } catch is CancellationError {
             // Cancelling is not a failure — the same rule as a cancelled load.
         } catch {
-            self.error = AppError(error)
+            self.error = failed("Sign in with \(provider.rawValue)", error)
         }
+    }
+
+    /// Maps and logs in one step so no site can do one without the other. The diagnostic is
+    /// `.public`: it is a server message or a vendor code, never anything the user typed.
+    private func failed(_ what: String, _ error: any Error) -> AppError {
+        let failure = AppError(error)
+        log.error(
+            "\(what, privacy: .public) failed: \(failure.diagnostic ?? "no diagnostic", privacy: .public)"
+        )
+        return failure
     }
 }

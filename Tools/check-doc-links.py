@@ -81,6 +81,42 @@ def check_sizes() -> list[str]:
     return problems
 
 
+FEATURE_STATUS = re.compile(r"^Status:\s*(\S+)", re.M)
+STAGE_ROW = re.compile(r"^\|\s*\d+\s*\|[^|]*\|\s*(\S+)\s*\|([^\n]*)$", re.M)
+
+
+def check_features() -> list[str]:
+    """The two layers must agree: every feature file has a stage row, and their statuses match.
+
+    docs/STATE.md is the ledger across features; docs/features/<name>.md is one feature's
+    steps and journal. A file with no row is invisible to a session that orients from the
+    ledger; a row that says 🟡 while the file says ⬜ is two answers to one question.
+    """
+    problems = []
+    state = (ROOT / "docs/STATE.md").read_text(encoding="utf-8")
+    rows = [(m.group(1), m.group(2)) for m in STAGE_ROW.finditer(state)]
+
+    for path in sorted((ROOT / "docs/features").glob("*.md")):
+        rel = path.relative_to(ROOT).as_posix()
+        if path.name.startswith("0000-"):
+            continue
+
+        row_status = next((status for status, rest in rows if rel in rest), None)
+        if row_status is None:
+            problems.append(f"{rel} has no row in docs/STATE.md's stage table that names it.")
+            continue
+
+        m = FEATURE_STATUS.search(path.read_text(encoding="utf-8"))
+        if not m:
+            problems.append(f"{rel} has no `Status:` line — the template's first line under the title.")
+            continue
+        if m.group(1) != row_status:
+            problems.append(
+                f"{rel} says {m.group(1)} but its docs/STATE.md row says {row_status}. One of them is stale."
+            )
+    return problems
+
+
 def check_locations(docs: list[Path]) -> list[str]:
     problems = []
     for md in docs:
@@ -138,6 +174,13 @@ def main() -> int:
             print(f"  {p}")
         print()
 
+    disagreeing = check_features()
+    if disagreeing:
+        print("Feature files that disagree with the ledger:\n")
+        for p in disagreeing:
+            print(f"  {p}")
+        print()
+
     if problems:
         print("Broken references in documentation:\n")
         for p in problems:
@@ -145,11 +188,11 @@ def main() -> int:
         print(f"\n{len(problems)} broken reference(s). Fix the path or create the file.")
         return 1
 
-    if oversized or misplaced:
+    if oversized or misplaced or disagreeing:
         return 1
 
     print("Docs OK — every reference resolves, every capped file is within budget,\n"
-          "and every document is in its one home.")
+          "every document is in its one home, and every feature file agrees with the ledger.")
     return 0
 
 if __name__ == "__main__":
