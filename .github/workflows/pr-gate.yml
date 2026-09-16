@@ -80,6 +80,9 @@ jobs:
       - name: Verify the settings the documents claim
         run: Tools/check-build-settings.sh "id=${{ steps.sim.outputs.udid }}"
 
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
       - name: Lint
         run: |
           set -euo pipefail
