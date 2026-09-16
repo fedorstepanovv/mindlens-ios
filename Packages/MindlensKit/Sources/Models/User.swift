@@ -3,6 +3,14 @@ import Foundation
 public enum AuthProvider: String, Decodable, Sendable {
     case apple = "APPLE"
     case google = "GOOGLE"
+    /// A provider this build predates. Decoding must not fail the whole response —
+    /// the server is unversioned, so a new provider can appear at any time.
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = AuthProvider(rawValue: raw) ?? .unknown
+    }
 }
 
 public struct User: Decodable, Sendable, Equatable, Identifiable {

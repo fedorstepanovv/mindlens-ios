@@ -1,105 +1,80 @@
-# Mindlens iOS — Current State
+# Current State
 
-**This is the living file. Every session updates it before ending.** The other docs in
-`docs/` are stable reference and change rarely; this one changes constantly.
+**What is true right now. Nothing else.**
 
-Last updated: 2026-09-10 · Foundation green, linting wired, merge gate enforcing
+This file is **rewritten in place, never appended to.** When something stops being
+current it moves to `CHANGELOG.md`. History does not live here — that is how the
+equivalent file in the server repo reached 2,000 lines and stopped being readable.
 
-Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred (with reason) · 📦 shipped
+**Hard cap: 80 lines**, enforced by `Tools/check-doc-links.py`. If you are adding a line,
+consider which one you are removing.
+
+Last updated: 2026-09-11
 
 ---
 
 ## Where things stand
 
-The documentation system and the shared module layer exist and build. `MindlensKit`
-compiles under Swift 6 language mode against iOS 18, and **16 tests across 5 suites
-pass** — including the concurrency tests for token refresh. SwiftLint and swift-format
-are configured and clean.
+`MindlensKit` and the app target both build under Swift 6 against iOS 18 with strict concurrency,
+from `Config/Base.xcconfig`, the only definition of those settings (ADR 0009). **79 tests across 19
+suites pass** in ~2s. SwiftLint, swift-format and the doc-link check are clean.
 
-The API contract in `docs/API.md` has been **verified against production**, and the
-error-envelope fixtures are real captures rather than hand-written guesses.
+**The app has UI, verified by running it** — the scene root switches on `SessionState` and the
+signed-out branch is a sign-in screen on the system Sign in with Apple button, checked in light and
+dark at default and the largest accessibility size. Onboarding and signed-in are stubs.
 
-Nothing reaches `main` except through the pull request gate. It builds, tests, lints and
-checks doc links, then runs `Tools/swiftgate` — a deterministic rule catalogue plus an
-agentic review that reads the diff against these documents and against the Flutter app,
-and blocks anything that reads as translated Dart. See ADR 0006.
+Sign-in is wired end to end **except the credential exchange**: no Firebase SDK is linked, so
+`UnavailableIdentityProvider` throws at that seam and a tap stops there (ADR 0010).
 
-No app UI exists yet: the Xcode project is still the stock template and does not yet
-reference the package.
+Nothing reaches `main` except the PR gate: test, build, launch, build settings (Debug only —
+Release unasserted), lint, doc links, and `Tools/swiftgate` reviewed by Claude Code. ADR 0006, 0012.
 
-**Next action:** wire `Packages/MindlensKit` into `mindlens.xcodeproj`, drop the
-deployment target from 26.2 to 18.0, and set Swift 6 language mode on the app target.
-Verify the app still builds before writing any feature code.
+## Next action
 
-**Blocked on:** nothing.
+`docs/features/auth.md`, step 3: link the Firebase Auth SDK and replace
+`UnavailableIdentityProvider`. That one file stands between this build and a real session.
 
-## Foundation
+## Blocked on
 
-| Item | Status | Notes |
-|---|---|---|
-| Repo scaffolding | ✅ | `docs/`, `.claude/`, `Packages/`, `Tools/` |
-| CLAUDE.md front door | ✅ | |
-| Architecture rules | ✅ | `docs/ARCHITECTURE.md` |
-| Code patterns | ✅ | `docs/PATTERNS.md` |
-| Design contract | ✅ | `docs/DESIGN.md` |
-| Testing contract | ✅ | `docs/TESTING.md` |
-| API contract | ✅ | `docs/API.md` — the only spec that exists |
-| SPM package skeleton | ✅ | `Packages/MindlensKit` |
-| Xcode project wiring | ⬜ | **Next action.** iOS 18 target, Swift 6 mode, package reference |
-| SwiftLint + swift-format | ✅ | `.swiftlint.yml` + `.swift-format`; formatter owns formatting, linter owns correctness |
-| CI (GitHub Actions) | ✅ | `.github/workflows/pr-gate.yml` — build · test · lint · doc links · idiom review |
-| Merge gate (`Tools/swiftgate`) | ✅ | Go. 22 static rules + agentic review. Tuned in `.github/swiftgate.yml`. ADR 0006 |
-| Branch protection on `main` | 🟡 | Rule set; needs the `ANTHROPIC_API_KEY` and `FLUTTER_SPEC_TOKEN` secrets to go green |
-| `/feature-done` command | ✅ | |
+A `GoogleService-Info.plist` from the Firebase project, and the Sign in with Apple capability.
+Neither is in the repo. Everything else in Stage 1 is done and tested.
 
-## Features
+## Stages
 
-Sequenced deliberately — each stage must be complete before the next begins.
-
-| Stage | Feature | Status | Notes |
+| # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Authentication | 🟡 | `TokenRefresher` + `APIClient` built and tested. Sign-in UI and Firebase exchange not started. |
-| 2 | Dashboard + Quick Log | 🟡 | `DashboardModel` built and tested against a stub repository. No views, no real repository. |
-| 3 | Insights + Recaps | ⬜ | Swift Charts. Polls for server-side AI generation. |
-| 4 | Onboarding + Paywall | ⬜ | Profile, goals, Lens picker, survey polling, RevenueCat. |
+| 1 | Authentication | 🟡 | `docs/features/auth.md`. Screen, gate, repository, refresh transport tested. Firebase exchange unlinked. |
+| 2 | Dashboard + Quick Log | 🟡 | `DashboardModel` tested against a stub. No views, no real repository. |
+| 3 | Insights + Recaps | ⬜ | Swift Charts; polls for server-side generation. |
+| 4 | Onboarding + Paywall | ⬜ | Survey polling, RevenueCat. The Flutter login screen bundles this survey ahead of sign-in. |
 
-## Decisions made
-
-See `docs/decisions/` for the full records. Summary:
-
-| ADR | Decision |
-|---|---|
-| 0001 | Swift Concurrency + Observation as the primary stack; Combine used surgically |
-| 0002 | Local SPM package with per-feature targets; features cannot import features |
-| 0003 | SwiftData for local persistence, behind repository protocols |
-| 0004 | Token refresh as an actor — single-flight, rotating-token aware |
-| 0005 | Third-party SDKs behind protocols; stub implementations are the default |
-| 0006 | An agentic merge gate, behind a deterministic pass, with a recorded override |
-
-## Deliberately not doing
-
-Recorded so nobody re-litigates these or mistakes them for oversights:
-
-- **No feature parity with Flutter.** Health sync, Events, Tag management, Reminders and
-  Settings are out of the current scope. Add them only by explicit decision.
-- **No API versioning shim.** The backend has none; adding client-side version
-  negotiation would be inventing a contract the server doesn't honor.
-- **No custom design system beyond tokens.** Native components carry the design. Building
-  a bespoke component library would work against the goal of idiomatic iOS.
+Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 
 ## Known gaps
 
-- `mood_create_200.json` is the one **hand-written** fixture — it cannot be captured until
-  auth works. Replace it during Stage 1. See the Fixtures README.
-- The app target is still the Xcode template. The type is now `MindlensApp` (the
-  template's lowercase name failed SwiftLint), but the file is still `mindlensApp.swift`
-  — rename it during project wiring, when the pbxproj is being edited anyway.
-- The gate's agentic pass has never run against the live API. Its sandbox, tool schemas
-  and prompt assembly are unit-tested; the loop itself is proven on the first pull
-  request.
+- **No captured fixture for `/auth/apple` or `/auth/refresh` 200** — neither is scriptable, so
+  decoding runs against inline bodies labelled as constructed and swiftgate's fixture rule is
+  waived in `AuthEndpoints.swift`. Capture both by hand at the first real sign-in.
+- **`Persistence` has no test target**, so `KeychainItem.write` has never run — not in a test, and
+  not in the app, where sign-in throws at the identity provider before it asks for a GUID.
+- **A transient restore failure parks in `restoring` with a retry**, correct only because no user
+  row is cached; **the local store is not observable** either. SwiftData, the outbox and ADR 0003's
+  validation gate are all unstarted. Stage 2.
+- No `PrivacyInfo.xcprivacy`, entitlements or usage descriptions; HealthKit beside analytics needs
+  a documented data boundary (Guideline 5.1.3). All required before submission.
+- No brand colour or app icon — `AccentColor` is empty, so the app tints system blue. Analytics
+  records events only. The Google button is unbranded but paired to Apple's per the HIG.
+
+## Deliberately not doing
+
+- **No feature parity with Flutter.** Health sync, Events, Tags, Reminders, Settings are out of
+  scope. Add only by explicit decision.
+- **No App Intents, Control, or widgets in v1** — ADR 0008.
+- **No API versioning shim** — the backend has none.
 
 ## Open questions
 
-- Whether Firebase is required at all, or whether the backend could accept Apple/Google
-  identity tokens directly. Currently the server verifies **Firebase** ID tokens, so the
-  iOS app must carry the Firebase Auth SDK. Worth confirming this is intentional.
+- Is the Firebase indirection intentional? The server verifies **Firebase** ID tokens, so the app
+  must carry the SDK to sign in with Apple at all. ADR 0010 makes either answer cheap to act on.
+- What is Mindlens's native palette? Flutter's `#5A6DF0` fails WCAG AA on white, and it ships no
+  dark mode, so both need deciding rather than copying.

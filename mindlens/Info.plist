@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Partial on purpose. GENERATE_INFOPLIST_FILE stays on and Xcode merges its keys into
+     this dict, so the only thing here is what it will not carry: a *custom* key.
+     INFOPLIST_KEY_<name> forwards only names on Xcode's own allowlist, and silently drops
+     anything else — which is how this key resolved correctly in the build settings and never
+     reached the bundle. $(API_BASE_URL) is substituted from Config/Base.xcconfig, which
+     remains the single definition. -->
+<plist version="1.0">
+<dict>
+	<key>MindlensAPIBaseURL</key>
+	<string>$(API_BASE_URL)</string>
+</dict>
+</plist>

@@ -6,6 +6,17 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		9C2879B8305337F600D73F47 /* Analytics in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879B7305337F600D73F47 /* Analytics */; };
+		9C2879BA305337F600D73F47 /* Core in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879B9305337F600D73F47 /* Core */; };
+		9C2879BC305337F600D73F47 /* Dashboard in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879BB305337F600D73F47 /* Dashboard */; };
+		9C2879BE305337F600D73F47 /* DesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879BD305337F600D73F47 /* DesignSystem */; };
+		9C2879C0305337F600D73F47 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879BF305337F600D73F47 /* Models */; };
+		9C2879D2305337F600D73F47 /* Authentication in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879D1305337F600D73F47 /* Authentication */; };
+		9C2879D4305337F600D73F47 /* Networking in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879D3305337F600D73F47 /* Networking */; };
+		9C2879D6305337F600D73F47 /* Persistence in Frameworks */ = {isa = PBXBuildFile; productRef = 9C2879D5305337F600D73F47 /* Persistence */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		9C7624AB3052E321003B13B1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,14 +35,29 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		9C2879C1305337F600D73F47 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		9C2879C2305337F600D73F47 /* Secrets.example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.example.xcconfig; sourceTree = "<group>"; };
 		9C76249D3052E320003B13B1 /* mindlens.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = mindlens.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C7624AA3052E321003B13B1 /* mindlensTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mindlensTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C7624B43052E321003B13B1 /* mindlensUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mindlensUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		9C2879E1305337F600D73F47 /* Exceptions for "mindlens" folder in "mindlens" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 9C76249C3052E320003B13B1 /* mindlens */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		9C76249F3052E320003B13B1 /* mindlens */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9C2879E1305337F600D73F47 /* Exceptions for "mindlens" folder in "mindlens" target */,
+			);
 			path = mindlens;
 			sourceTree = "<group>";
 		};
@@ -52,6 +78,14 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9C2879C0305337F600D73F47 /* Models in Frameworks */,
+				9C2879B8305337F600D73F47 /* Analytics in Frameworks */,
+				9C2879BA305337F600D73F47 /* Core in Frameworks */,
+				9C2879BC305337F600D73F47 /* Dashboard in Frameworks */,
+				9C2879BE305337F600D73F47 /* DesignSystem in Frameworks */,
+				9C2879D2305337F600D73F47 /* Authentication in Frameworks */,
+				9C2879D4305337F600D73F47 /* Networking in Frameworks */,
+				9C2879D6305337F600D73F47 /* Persistence in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -72,9 +106,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		9C2879C3305337F600D73F47 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				9C2879C1305337F600D73F47 /* Base.xcconfig */,
+				9C2879C2305337F600D73F47 /* Secrets.example.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
 		9C7624943052E320003B13B1 = {
 			isa = PBXGroup;
 			children = (
+				9C2879C3305337F600D73F47 /* Config */,
 				9C76249F3052E320003B13B1 /* mindlens */,
 				9C7624AD3052E321003B13B1 /* mindlensTests */,
 				9C7624B73052E321003B13B1 /* mindlensUITests */,
@@ -112,6 +156,14 @@
 			);
 			name = mindlens;
 			packageProductDependencies = (
+				9C2879B7305337F600D73F47 /* Analytics */,
+				9C2879B9305337F600D73F47 /* Core */,
+				9C2879BB305337F600D73F47 /* Dashboard */,
+				9C2879BD305337F600D73F47 /* DesignSystem */,
+				9C2879BF305337F600D73F47 /* Models */,
+				9C2879D1305337F600D73F47 /* Authentication */,
+				9C2879D3305337F600D73F47 /* Networking */,
+				9C2879D5305337F600D73F47 /* Persistence */,
 			);
 			productName = mindlens;
 			productReference = 9C76249D3052E320003B13B1 /* mindlens.app */;
@@ -195,6 +247,9 @@
 			);
 			mainGroup = 9C7624943052E320003B13B1;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9C2879B6305337F600D73F47 /* XCLocalSwiftPackageReference "Packages/MindlensKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9C76249E3052E320003B13B1 /* Products */;
 			projectDirPath = "";
@@ -271,6 +326,7 @@
 /* Begin XCBuildConfiguration section */
 		9C7624BC3052E321003B13B1 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9C2879C1305337F600D73F47 /* Base.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -321,7 +377,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -334,6 +389,7 @@
 		};
 		9C7624BD3052E321003B13B1 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9C2879C1305337F600D73F47 /* Base.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -378,7 +434,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -397,6 +452,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = mindlens/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -414,7 +470,6 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -428,6 +483,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = mindlens/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -445,7 +501,6 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -457,7 +512,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.trymindlensnative.mindlensTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -465,7 +519,6 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/mindlens.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/mindlens";
 			};
@@ -478,7 +531,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.trymindlensnative.mindlensTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -486,7 +538,6 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/mindlens.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/mindlens";
 			};
@@ -505,7 +556,6 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = mindlens;
 			};
@@ -524,7 +574,6 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = mindlens;
 			};
@@ -570,6 +619,48 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		9C2879B6305337F600D73F47 /* XCLocalSwiftPackageReference "Packages/MindlensKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/MindlensKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9C2879B7305337F600D73F47 /* Analytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Analytics;
+		};
+		9C2879B9305337F600D73F47 /* Core */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Core;
+		};
+		9C2879BB305337F600D73F47 /* Dashboard */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Dashboard;
+		};
+		9C2879BD305337F600D73F47 /* DesignSystem */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DesignSystem;
+		};
+		9C2879BF305337F600D73F47 /* Models */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Models;
+		};
+		9C2879D1305337F600D73F47 /* Authentication */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Authentication;
+		};
+		9C2879D3305337F600D73F47 /* Networking */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Networking;
+		};
+		9C2879D5305337F600D73F47 /* Persistence */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Persistence;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 9C7624953052E320003B13B1 /* Project object */;
 }

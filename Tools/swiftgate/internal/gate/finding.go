@@ -109,22 +109,13 @@ type Result struct {
 	Findings []Finding
 	// Skipped is set when there was nothing to review, e.g. a docs-only PR.
 	Skipped string
-	// Usage is filled in by the agent pass. Zero when only static rules ran.
-	Usage Usage
+	// Verdict is the reviewer's plain-language read on the change as a whole.
+	Verdict string
+	// Reviewer names what produced the judgement half, for the report footer.
+	Reviewer string
 	// Override, when non-empty, is the reason a human gave for merging past a
 	// blocker. Recorded in the report; it does not hide the findings.
 	Override string
-}
-
-// Usage is what the review cost.
-type Usage struct {
-	Model             string
-	InputTokens       int64
-	OutputTokens      int64
-	CacheReadTokens   int64
-	CacheWriteTokens  int64
-	Turns             int
-	EstimatedUSDCents float64
 }
 
 // Add merges another pass's findings in.

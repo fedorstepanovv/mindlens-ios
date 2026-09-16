@@ -6,7 +6,11 @@ public struct NoContent: Decodable, Sendable {
     public init() {}
 }
 
-public actor APIClient {
+/// Stateless: all three properties are `let`, so there is nothing to isolate.
+/// `Sendable` rather than an `actor` — an actor here would add an executor hop per
+/// request and protect nothing. Isolation lives in `TokenRefresher`, which does have
+/// mutable state.
+public final class APIClient: Sendable {
     private let baseURL: URL
     private let session: URLSession
     private let refresher: TokenRefresher
@@ -23,7 +27,7 @@ public actor APIClient {
         if endpoint.requiresAuth {
             credentials = try await refresher.credentials()
             guard credentials != nil else {
-                throw AppError(kind: .unauthenticated, message: Self.signedOutMessage)
+                throw AppError(kind: .unauthenticated)
             }
         }
 
@@ -31,7 +35,9 @@ public actor APIClient {
 
         // One retry, and only for a genuine 401. The refresher decides whether that means
         // "token was stale" or "session is over" — see TokenRefresher.
-        if response.statusCode == 401, endpoint.requiresAuth, let credentials {
+        if response.statusCode == 401, endpoint.requiresAuth, endpoint.retriesAfterRefresh,
+            let credentials
+        {
             let fresh = try await refresher.refreshed(after: credentials.generation)
             let (retryData, retryResponse) = try await perform(endpoint, using: fresh.tokens)
             return try decode(retryData, response: retryResponse)
@@ -52,14 +58,12 @@ public actor APIClient {
                 resolvingAgainstBaseURL: false
             )
         else {
-            throw AppError(
-                kind: .unknown, message: Self.genericMessage, diagnostic: "Bad URL for \(endpoint.path)")
+            throw AppError(kind: .unknown, diagnostic: "Bad URL for \(endpoint.path)")
         }
         if !endpoint.query.isEmpty { components.queryItems = endpoint.query }
 
         guard let url = components.url else {
-            throw AppError(
-                kind: .unknown, message: Self.genericMessage, diagnostic: "Bad query for \(endpoint.path)")
+            throw AppError(kind: .unknown, diagnostic: "Bad query for \(endpoint.path)")
         }
 
         var request = URLRequest(url: url)
@@ -75,7 +79,7 @@ public actor APIClient {
         do {
             let (data, response) = try await session.data(for: request)
             guard let http = response as? HTTPURLResponse else {
-                throw AppError(kind: .unknown, message: Self.genericMessage)
+                throw AppError(kind: .unknown)
             }
             return (data, http)
         } catch let error as AppError {
@@ -102,9 +106,7 @@ public actor APIClient {
         } catch {
             // A decoding failure here means the response no longer matches docs/API.md.
             throw AppError(
-                kind: .decoding,
-                message: Self.genericMessage,
-                diagnostic: "Failed to decode \(Response.self): \(error)"
+                kind: .decoding, diagnostic: "Failed to decode \(Response.self): \(error)"
             )
         }
     }
@@ -115,16 +117,11 @@ public actor APIClient {
 
         return switch status {
         case 401:
-            AppError(kind: .unauthenticated, message: Self.signedOutMessage, diagnostic: serverMessage)
+            AppError(kind: .unauthenticated, diagnostic: serverMessage)
         case 429:
-            AppError(
-                kind: .throttled(retryAfter: nil), message: Self.throttledMessage, diagnostic: serverMessage)
+            AppError(kind: .throttled(retryAfter: nil), diagnostic: serverMessage)
         default:
-            AppError(kind: .server(status: status), message: Self.genericMessage, diagnostic: serverMessage)
+            AppError(kind: .server(status: status), diagnostic: serverMessage)
         }
     }
-
-    private static let genericMessage = String(localized: "Something went wrong. Please try again.")
-    private static let signedOutMessage = String(localized: "Your session has ended. Please sign in again.")
-    private static let throttledMessage = String(localized: "Too many requests. Please wait a moment.")
 }

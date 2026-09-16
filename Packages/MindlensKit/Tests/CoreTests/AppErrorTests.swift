@@ -15,7 +15,7 @@ struct AppErrorTests {
 
     @Test("does not wrap an AppError twice")
     func preservesExisting() {
-        let original = AppError(kind: .server(status: 500), message: "boom")
+        let original = AppError(kind: .server(status: 500))
         #expect(AppError(original) == original)
     }
 
@@ -25,6 +25,6 @@ struct AppErrorTests {
             (500, true), (503, true), (400, false), (404, false),
         ])
     func retryability(status: Int, expected: Bool) {
-        #expect(AppError(kind: .server(status: status), message: "x").isRetryable == expected)
+        #expect(AppError(kind: .server(status: status)).isRetryable == expected)
     }
 }

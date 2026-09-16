@@ -4,11 +4,14 @@
 // fresh clone builds. Actual secrets (Firebase, RevenueCat, Sentry) belong in
 // Config/Secrets.xcconfig, which is git-ignored. See Config/Secrets.example.xcconfig.
 
-// xcconfig treats "//" as a comment even inside a value, so the scheme separator is
-// spelled with a variable. This is the standard workaround, not a hack of ours.
-URL_SCHEME_SEPARATOR = //
+// xcconfig treats "//" as the start of a comment even inside a value, so the scheme
+// separator cannot be written literally. Nor can it be spelled as a variable holding
+// "//" — that definition is itself truncated by the comment rule, which is how this
+// file previously resolved to "https:mindlens-api-production.up.railway.app". A single
+// slash is safe, so the separator is assembled from two of them.
+URL_SCHEME_SLASH = /
 
-API_BASE_URL = https:$(URL_SCHEME_SEPARATOR)mindlens-api-production.up.railway.app
+API_BASE_URL = https:$(URL_SCHEME_SLASH)$(URL_SCHEME_SLASH)mindlens-api-production.up.railway.app
 
 PRODUCT_BUNDLE_IDENTIFIER = com.trymindlensnative.mindlens
 IPHONEOS_DEPLOYMENT_TARGET = 18.0

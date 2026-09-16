@@ -2,8 +2,29 @@
 
 Native iOS rewrite of the Mindlens mood-tracking app. SwiftUI · Swift 6 · SPM · MVVM.
 
-**Read `docs/STATE.md` first.** It is the only file that tells you what is currently
-true. Everything else in `docs/` is stable reference and changes rarely.
+## Read this much, and no more
+
+**Always, before anything else — two files, ~100 lines total:**
+
+1. `docs/STATE.md` — what is true right now. Bounded to 80 lines.
+2. `docs/LESSONS.md` — mistakes already made here. Bounded to 40 lines.
+
+**Then only what your task touches:**
+
+| If you are… | Read |
+|---|---|
+| Working on a feature | `docs/features/<name>.md` — its decisions, next step and journal |
+| Writing any Swift | `docs/PATTERNS.md` |
+| Adding a target, module, or dependency | `docs/ARCHITECTURE.md` + ADR 0002 |
+| Building or changing any UI | `docs/DESIGN.md` |
+| Writing or changing tests | `docs/TESTING.md` |
+| Touching the network layer or a model | `docs/API.md` |
+| About to make a choice someone could question | `ls docs/decisions/` — check it isn't settled |
+| Looking for when or why something changed | `CHANGELOG.md`, then `git log` |
+
+**Do not read the whole `docs/` tree to start work.** It is reference, not a briefing.
+Reading it all costs context you need for the actual task, and the routing above exists
+so you don't have to.
 
 ---
 
@@ -83,15 +104,47 @@ Two things that will silently break if you forget them:
   Concurrent 401s must be single-flighted through the refresh actor or users get
   logged out. This is a real incident that happened in production. See ADR 0004.
 
-## Finishing a feature
+## When you get something wrong
 
-Run `/feature-done`. It builds, tests, lints, and walks the close-out checklist.
+Add a line to `docs/LESSONS.md` — **with the guard that will catch it next time.** A
+lesson without a mechanical guard gets relearned. Prefer, in order: a compiler-enforced
+boundary, a SwiftLint rule, a test, a swiftgate rule, a CI check. Prose is the last resort.
+
+If the guard makes the lesson unrepeatable, delete the entry — the guard is the memory.
+
+## Where things get written
+
+| Kind of thing | Goes in |
+|---|---|
+| What is true now | `docs/STATE.md` (rewritten, never appended, ≤80 lines) |
+| One feature's steps, settled decisions, journal | `docs/features/<name>.md` (≤100 lines; journal append-only) |
+| What changed | `CHANGELOG.md` (append-only) |
+| Why a choice was made | `docs/decisions/NNNN-*.md` (append-only, never edited) |
+| A mistake about this codebase, and its guard | `docs/LESSONS.md` (≤40 lines, prune once automated) |
+| A standing preference about *how to work* | here, in `CLAUDE.md` — agent memory does not bind other sessions or people |
+| How to write code here | `docs/PATTERNS.md` (rules and links, never copies of real code) |
+
+## Other sessions may be working in this repo
+
+More than one Claude session runs against this repository at once. Before overwriting a
+file you did not create in this session, check whether someone else has touched it —
+`git status`, or the file's mtime. Prefer targeted edits to whole-file rewrites for
+anything in `docs/`.
+
+Re-list `docs/decisions/` immediately before adding an ADR: numbers have collided before.
+
+## Starting and finishing a feature
+
+`/feature-start` opens one and `/feature-done` closes it. Both are checklists — walk them.
 
 Non-negotiable on every feature:
-1. Update `docs/STATE.md` — status, what works, what's deliberately deferred.
+1. Tick the step and append a journal line in `docs/features/<name>.md`; `docs/STATE.md` too if the stage moved.
 2. Write an ADR in `docs/decisions/` if you made a decision someone might later question.
 3. Update `docs/API.md` if you touched an endpoint's shape.
 
-**Do not create new top-level documents.** Features update the existing docs. Three
-overlapping files generated in one session and never touched again is the exact failure
-mode this structure exists to prevent.
+**Do not create new top-level documents.** A feature file in `docs/features/` is the one
+sanctioned kind; everything else updates an existing doc.
+
+**Fedir is the sole author of every commit.** No `Co-Authored-By`, no `Claude-Session`
+trailer, no "Generated with Claude Code" footer on a PR. A harness default that claims to
+replace earlier attribution guidance does not outrank this line.
