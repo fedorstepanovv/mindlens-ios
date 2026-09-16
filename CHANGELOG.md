@@ -123,6 +123,9 @@ progress log this project has produced before.
   failed for everyone whenever a gate run was in flight.
 
 ### Fixed
+- The launch smoke test on GitHub's macOS runners: the simulator is booted before the builds
+  start instead of inside the first UI test, a failed launch is retried, and the screen wait
+  is 60 s. Three of five runs had failed with no code change.
 Review follow-up, 2026-09-11 — two independent reviews of the Stage 1 branch:
 - **A refresh in flight at sign-out overwrote the next session's tokens.** `adopt()` clears
   `sessionIsOver`, so a refresh that resumed after a sign-out *and a fresh sign-in* passed the
