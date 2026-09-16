@@ -164,6 +164,10 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Three runs died at turn 1 with an empty modelUsage and the cause hidden.
+          # The output is the review's own reasoning over a private repo's diff; showing
+          # it costs nothing and is the only way to read why the model was never called.
+          show_full_output: true
           # Not "/idiom-review": the slash form resolved to nothing on the runner and
           # Claude exited with num_turns 0 and an empty modelUsage. Pointing at the file
           # keeps one copy of the rubric without depending on skill dispatch.
