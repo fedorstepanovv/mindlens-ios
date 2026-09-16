@@ -171,8 +171,13 @@ jobs:
           # Not "/idiom-review": the slash form resolved to nothing on the runner and
           # Claude exited with num_turns 0 and an empty modelUsage. Pointing at the file
           # keeps one copy of the rubric without depending on skill dispatch.
+          # The action restores .claude/ from main because a PR head is untrusted, and
+          # keeps the PR's own copy under .claude-pr/. Until the skill is on main, that
+          # copy is the only one on the runner; once it is, the first path wins.
           prompt: |
-            Read .claude/skills/idiom-review/SKILL.md and follow it exactly.
+            Read .claude/skills/idiom-review/SKILL.md and follow it exactly. If that file
+            does not exist, Glob for .claude-pr/**/idiom-review/SKILL.md, read the match,
+            and follow that one exactly instead.
           claude_args: |
             --max-turns 40
             --model claude-opus-5
