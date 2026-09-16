@@ -84,6 +84,10 @@ progress log this project has produced before.
   everywhere and read nowhere: a 422's server message never left the process.
 - `docs/API.md` — the API verifies Firebase tokens against **one** project, production's, and
   there is no dev backend; `/auth/apple` has two distinct 422 messages.
+- Pull request conventions: `.github/PULL_REQUEST_TEMPLATE.md`, the `/pr` skill
+  (`.claude/skills/pr/SKILL.md`) to open, check and land one, and ADR 0013 — one branch per
+  feature step, merge commits, a red gate never merged. `main` cannot be protected on this
+  plan, so the gate binds by convention; ADR 0006 had assumed otherwise.
 
 ### Changed
 - Split the memory system so no file grows without bound: `docs/STATE.md` is now

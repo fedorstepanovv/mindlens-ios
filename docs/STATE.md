@@ -9,7 +9,7 @@ equivalent file in the server repo reached 2,000 lines and stopped being readabl
 **Hard cap: 80 lines**, enforced by `Tools/check-doc-links.py`. If you are adding a line,
 consider which one you are removing.
 
-Last updated: 2026-09-11
+Last updated: 2026-09-16
 
 ---
 
@@ -27,13 +27,15 @@ from the production Firebase project beside `mindlens/Info.plist`; the file is g
 and a fresh clone get `UnavailableIdentityProvider` instead, and a Release build without it fails at
 launch (ADR 0010, `docs/features/auth.md`). Every sign-in is a real production account.
 
-Nothing reaches `main` except the PR gate: test, build, launch, build settings + team + entitlement
-(Debug only — Release is unasserted), lint, doc links, and `Tools/swiftgate` alongside. ADR 0006.
+Nothing reaches `main` except a PR through the gate — test, build, launch, settings + team + entitlement
+(Debug only), lint, doc links, `Tools/swiftgate` (ADR 0006). **Nothing has yet**: `main` is five commits old,
+and it cannot be protected on this plan, so a red gate binds by `/pr` convention, not mechanism (ADR 0013).
 
 ## Next action
 
-`docs/features/auth.md`, step 4, second half: the `REVERSED_CLIENT_ID` URL scheme into
-`mindlens/Info.plist`, then a real "Continue with Google". The code is wired and never run.
+Land before branching again — `base-setup` → `main` as a PR, then PR #1 merged with it (ADR 0013 has the
+order, and why #1 is red). Then `feature/auth` for `docs/features/auth.md` step 4: the `REVERSED_CLIENT_ID`
+URL scheme into `mindlens/Info.plist`, then a real "Continue with Google" — wired, never run.
 
 ## Blocked on
 
@@ -55,8 +57,8 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 - **No captured fixture for `/auth/apple` or `/auth/refresh` 200** — neither is scriptable, so
   decoding runs against inline bodies labelled as constructed and swiftgate's fixture rule is
   waived in `AuthEndpoints.swift`. Capture both off a proxied real sign-in (`auth.md` step 5).
-- **The live refresh has never been observed** — restore has only run inside the 15-minute window.
-- **`Persistence` has no test target** — `KeychainItem` has now run for real in the app, never under a test.
+- **The live refresh has never been observed** (restore only ran inside the 15-minute window), and
+  **`Persistence` has no test target** — `KeychainItem` has run for real in the app, never under a test.
 - **Sign-out leaves the Firebase user signed in** — the seam has no sign-out. Fine until account deletion.
 - **A transient restore failure parks in `restoring` with a retry**, correct only because no user
   row is cached; **the local store is not observable** either. SwiftData, the outbox, ADR 0003's gate: Stage 2.
@@ -67,8 +69,7 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 
 ## Deliberately not doing
 
-- **No feature parity with Flutter.** Health sync, Events, Tags, Reminders, Settings are out of
-  scope. Add only by explicit decision.
+- **No feature parity with Flutter.** Health sync, Events, Tags, Reminders, Settings are out of scope; add only by decision.
 - **No App Intents, Control, or widgets in v1** — ADR 0008.
 - **No API versioning shim** — the backend has none.
 
@@ -76,5 +77,4 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 
 - Is the Firebase indirection intentional? The server verifies **Firebase** ID tokens, so the app
   must carry the SDK to sign in with Apple at all. ADR 0010 makes either answer cheap to act on.
-- What is Mindlens's native palette? Flutter's `#5A6DF0` fails WCAG AA on white, and it ships no
-  dark mode, so both need deciding rather than copying.
+- What is Mindlens's native palette? Flutter's `#5A6DF0` fails WCAG AA on white and ships no dark mode.
