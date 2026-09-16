@@ -220,6 +220,9 @@ jobs:
   conventions:
     name: Branch, ADR numbers, size
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read   # the head branch, labels and body; the decisions on other PRs' heads
     steps:
       - uses: actions/checkout@v4
         with:
