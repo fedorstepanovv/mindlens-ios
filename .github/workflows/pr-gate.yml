@@ -222,10 +222,27 @@ jobs:
             .swiftgate/run/
           if-no-files-found: ignore
 
+  # The rules a session cannot be relied on to remember: branch name, ADR numbers that
+  # collide with another open pull request, and size. Seconds on ubuntu; ADR 0013.
+  conventions:
+    name: Branch, ADR numbers, size
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read   # the head branch, labels and body; the decisions on other PRs' heads
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: Tools/check-pr-conventions.sh ${{ github.event.pull_request.number }}
+
   gate:
     name: Gate
     if: always()
-    needs: [build, idiom]
+    needs: [build, idiom, conventions]
     runs-on: ubuntu-latest
     steps:
       - name: Decide
@@ -233,9 +250,12 @@ jobs:
           set -euo pipefail
           build='${{ needs.build.result }}'
           idiom='${{ needs.idiom.result }}'
+          conventions='${{ needs.conventions.result }}'
           echo "build: $build"
           echo "idiom: $idiom"
+          echo "conventions: $conventions"
           failed=0
           [ "$build" = "success" ] || { echo "::error::Build or tests failed."; failed=1; }
           [ "$idiom" = "success" ] || { echo "::error::The Swift idiom review is blocking this merge. Read the review comment on the pull request."; failed=1; }
+          [ "$conventions" = "success" ] || { echo "::error::Branch name, an ADR number, or the size cap — read the conventions job."; failed=1; }
           exit $failed

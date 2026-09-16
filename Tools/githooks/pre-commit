@@ -1,0 +1,65 @@
+#!/bin/bash
+# Runs before every commit, in a terminal and in a session alike — .claude/hooks/session-start.sh
+# points core.hooksPath here the first time a session opens the repo. Branch protection is a 403
+# on this plan (ADR 0013), so these hooks are the mechanism; CLAUDE.md is only the explanation.
+#
+# Each check names the history it comes from. A check that fires prints one line and exits 1;
+# nothing here rewrites anything.
+set -uo pipefail
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+cd "$root" || exit 0
+branch=$(git branch --show-current)
+[ -z "$branch" ] && exit 0   # detached HEAD — a rebase or bisect, not ours to judge
+
+# "<number>\t<head branch>" per open pull request. Written by session-start.sh and /pr, read here
+# so a commit never waits on the network. Lives in the common dir, so every worktree shares it.
+cache="$(git rev-parse --git-common-dir)/mindlens-open-prs"
+zero=0000000000000000000000000000000000000000
+
+fail() { printf 'pre-commit: %s\n' "$*" >&2; exit 1; }
+
+# 1. main moves only by pull request.
+[ "$branch" = main ] && fail "commits go on a branch, never on main (ADR 0013): git switch -c <kind>/<slug>"
+
+# 2. <kind>/<slug>. The two named branches predate the rule and land as they are.
+case "$branch" in
+  feature/*|fix/*|docs/*|tooling/*|base-setup|gate/subscription-billing) ;;
+  *) fail "branch '$branch' is not <kind>/<slug> with kind feature, fix, docs or tooling (ADR 0013)" ;;
+esac
+
+if [ ! -f "$cache" ]; then
+  printf 'pre-commit: no open-PR cache at %s — opening a session or running /pr writes it. Skipping the PR checks.\n' "$cache" >&2
+  exit 0
+fi
+
+heads=(); this_has_pr=0
+while IFS=$'\t' read -r num head; do
+  [ -z "${head:-}" ] && continue
+  [ "$head" = "$branch" ] && this_has_pr=1
+  git rev-parse -q --verify "refs/remotes/origin/$head" >/dev/null && heads+=("refs/remotes/origin/$head")
+done < "$cache"
+
+# 3. Work nobody can see in a pull request is capped. base-setup reached twenty commits before
+#    anyone opened one. Counted against origin/main *and* every open PR head, so a branch stacked
+#    on an open pull request is charged only for its own commits. A draft PR lifts the cap.
+max=${MINDLENS_MAX_UNREVIEWED_COMMITS:-5}
+if [ "$this_has_pr" = 0 ]; then
+  unseen=$(git rev-list --count HEAD --not refs/remotes/origin/main "${heads[@]}" 2>/dev/null || echo 0)
+  [ "$unseen" -ge "$max" ] && fail "$unseen commits on '$branch' are in no pull request (cap $max). Open one with /pr — a draft is fine — then commit."
+fi
+
+# 4. Your pushed branch is inside another open pull request. A commit here re-diverges what that
+#    PR absorbed — base-setup did this two hours after gate/subscription-billing merged it.
+if [ "${MINDLENS_ALLOW_ABSORBED:-0}" != 1 ] && git rev-parse -q --verify "refs/remotes/origin/$branch" >/dev/null; then
+  while IFS=$'\t' read -r num head; do
+    [ -z "${head:-}" ] || [ "$head" = "$branch" ] && continue
+    ref="refs/remotes/origin/$head"
+    git rev-parse -q --verify "$ref" >/dev/null || continue
+    if git merge-base --is-ancestor "refs/remotes/origin/$branch" "$ref"; then
+      fail "origin/$branch is already inside PR #$num ($head). Land #$num or commit there. MINDLENS_ALLOW_ABSORBED=1 proceeds, on the record."
+    fi
+  done < "$cache"
+fi
+
+exit 0

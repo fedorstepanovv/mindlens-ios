@@ -1,0 +1,24 @@
+#!/bin/bash
+# Runs before every push. Two refusals, both from ADR 0013:
+#   main moves only by pull request — branch protection is a 403 on this plan, so this hook is
+#   the only thing between a keyboard and main.
+#   a push that would not fast-forward rewrites history someone may already have read.
+# MINDLENS_PUSH_MAIN=1 lifts the first, for the day the convention has to be broken on purpose
+# and never silently. Nothing lifts the second; delete and recreate the branch instead.
+set -uo pipefail
+zero=0000000000000000000000000000000000000000
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = refs/heads/main ]; then
+    [ "${MINDLENS_PUSH_MAIN:-0}" = 1 ] && continue
+    echo "pre-push: main moves only by pull request — /pr land (ADR 0013). MINDLENS_PUSH_MAIN=1 overrides, on the record." >&2
+    exit 1
+  fi
+  [ "$local_sha" = "$zero" ] && continue     # deleting a remote branch — /pr land does this
+  [ "$remote_sha" = "$zero" ] && continue    # creating one
+  if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+    echo "pre-push: $remote_ref would not fast-forward from ${remote_sha:0:7} — that rewrites pushed history. Not here (ADR 0013)." >&2
+    exit 1
+  fi
+done
+exit 0
