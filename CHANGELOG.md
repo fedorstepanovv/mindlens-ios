@@ -86,6 +86,10 @@ progress log this project has produced before.
   everywhere and read nowhere: a 422's server message never left the process.
 - `docs/API.md` — the API verifies Firebase tokens against **one** project, production's, and
   there is no dev backend; `/auth/apple` has two distinct 422 messages.
+- Branch guards that install themselves: `Tools/githooks` (pre-commit, pre-push), pointed at by
+  `core.hooksPath` from the `SessionStart` hook, so ADR 0013 binds a terminal as well as a
+  session. `Tools/check-pr-conventions.sh` runs in the gate — branch name, ADR numbers checked
+  against every open pull request's head, and a 1,500-line cap lifted by `size-override`.
 - Pull request conventions: `.github/PULL_REQUEST_TEMPLATE.md`, the `/pr` skill
   (`.claude/skills/pr/SKILL.md`) to open, check and land one, and ADR 0013 — one branch per
   feature step, merge commits, a red gate never merged. `main` cannot be protected on this
