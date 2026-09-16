@@ -14,20 +14,49 @@
       "Bash(git show:*)",
       "Bash(python3 Tools/check-doc-links.py)",
       "Read(//Users/fedir/Desktop/mindlens/app/mindlensapp/**)",
-      "Read(//Users/fedir/Desktop/mindlens/server/amfine/**)"
+      "Read(//Users/fedir/Desktop/mindlens/server/amfine/**)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run list:*)",
+      "Bash(git worktree list:*)",
+      "Bash(git branch:*)",
+      "Bash(git fetch:*)"
     ],
     "deny": [
       "Read(./**/*.xcconfig)",
       "Read(./**/.env)",
-      "Read(./**/GoogleService-Info.plist)"
+      "Read(./**/GoogleService-Info.plist)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git push origin HEAD:main:*)",
+      "Bash(git branch -D main:*)",
+      "Bash(git worktree remove --force:*)"
     ]
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "matcher": "",
         "hooks": [
-          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/state-doc-reminder.sh" }
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/state-doc-reminder.sh"
+          }
         ]
       }
     ]
