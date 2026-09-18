@@ -117,12 +117,12 @@ func TestIgnoresPatternsInsideComments(t *testing.T) {
 func TestWaiverSilencesNamedRuleOnly(t *testing.T) {
 	got := rules(t, file("Packages/MindlensKit/Sources/Features/Dashboard/Legacy.swift", `
 let queue = DispatchQueue.main // swiftgate:allow swift/gcd-queue — UIKit interop, removed with the bridge
-try! JSONDecoder().decode(Foo.self, from: data)
+print("loaded")
 `))
 	if _, ok := got["swift/gcd-queue"]; ok {
 		t.Error("a waiver naming the rule should silence it")
 	}
-	if _, ok := got["swift/force-try-cast"]; !ok {
+	if _, ok := got["design/print-logging"]; !ok {
 		t.Error("a waiver must not silence rules it does not name")
 	}
 }
