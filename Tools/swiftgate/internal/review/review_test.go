@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/evidence"
 	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/gate"
 	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/scan"
 )
@@ -89,16 +90,47 @@ func TestIngestFailsLoudlyOnMissingOrBrokenFile(t *testing.T) {
 	}
 }
 
-func TestIncompleteBlocksAndSaysHowToRecover(t *testing.T) {
-	f := Incomplete("rate limited")
-	if f.Severity != gate.Blocker {
-		t.Error("a review that did not run is not evidence the code is clean; it must block")
+// The order of Lane's checks is the contract. Each way a judgement can be absent is
+// CANNOT_EVALUATE, and none of them is ever read as a pass.
+func TestLaneIsCannotEvaluateWheneverTheJudgementIsAbsent(t *testing.T) {
+	present := evidence.Result{Lane: evidence.Idiom, Present: []string{"the diff"}}
+	clean := writeFindings(t, `{"verdict": "clean", "findings": []}`)
+
+	cases := map[string]gate.Lane{
+		"evidence missing":               Lane(evidence.Result{Lane: evidence.Idiom, Missing: []string{"a Dart file"}}, true, clean),
+		"judge did not run":              Lane(present, false, clean),
+		"findings file absent":           Lane(present, true, filepath.Join(t.TempDir(), "absent.json")),
+		"findings file not the contract": Lane(present, true, writeFindings(t, "not json")),
 	}
-	if !strings.Contains(f.Fix, "Re-run") {
-		t.Error("the finding should tell the reader how to recover")
+	for name, lane := range cases {
+		if lane.Verdict != gate.CannotEvaluate {
+			t.Errorf("%s: want CANNOT_EVALUATE, got %q", name, lane.Verdict)
+		}
+		if lane.Reason == "" {
+			t.Errorf("%s: the reason must say what was missing", name)
+		}
 	}
-	if !strings.Contains(f.Detail, "rate limited") {
-		t.Error("the underlying reason should be carried through")
+	if !strings.Contains(cases["evidence missing"].Reason, "a Dart file") {
+		t.Error("the evidence gate's missing list must reach the report")
+	}
+	if !strings.Contains(cases["judge did not run"].Reason, "Re-run") {
+		t.Error("a judge that did not run should tell the reader how to recover")
+	}
+}
+
+func TestLaneReadsTheJudgeOnlyWhenEverythingElseHolds(t *testing.T) {
+	present := evidence.Result{Lane: evidence.Idiom, Present: []string{"the diff"}}
+	path := writeFindings(t, `{"verdict": "one real problem", "findings": [
+	  {"rule": "a/b", "severity": "warning", "file": "Sources/A.swift", "line": 1, "title": "t", "detail": "d", "fix": "f"}
+	]}`)
+	lane := Lane(present, true, path)
+	if lane.Verdict != gate.Concerns || len(lane.Findings) != 1 || lane.Reason != "one real problem" {
+		t.Errorf("the judge's output should stand once evidence, run and contract hold: %+v", lane)
+	}
+
+	skipped := Lane(evidence.Result{Lane: evidence.Spec, Skipped: "not a feature branch"}, false, path)
+	if skipped.Skipped == "" || skipped.Verdict != "" {
+		t.Errorf("a lane that does not apply is skipped, not judged and not failed: %+v", skipped)
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/evidence"
 	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/gate"
 	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/scan"
 )
@@ -53,6 +54,18 @@ type State struct {
 	Skipped string   `json:"skipped,omitempty"`
 	// Reviewed records whether a reviewer was expected to run at all.
 	Reviewed bool `json:"reviewed"`
+	// Evidence is every lane's gate result, read off disk by `prepare` before any
+	// judge runs. `decide` scores from it; it never re-derives it.
+	Evidence map[evidence.Lane]evidence.Result `json:"evidence,omitempty"`
+}
+
+// LaneFindingsFile is where a lane's judge writes back. The idiom lane keeps the file
+// name its skill hardcodes.
+func LaneFindingsFile(lane evidence.Lane) string {
+	if lane == evidence.Idiom {
+		return FindingsFile
+	}
+	return "lane-" + string(lane) + ".json"
 }
 
 // Prepare writes the brief the reviewer reads. Returns false when there is nothing to
@@ -200,21 +213,32 @@ func NormaliseRule(s string) string {
 	return s
 }
 
-// Incomplete is the finding raised when the reviewer was expected but produced nothing.
-// It blocks, because "the reviewer did not run" is not evidence that the code is clean —
-// and it is re-runnable, which the message says.
-func Incomplete(reason string) gate.Finding {
-	return gate.Finding{
-		Rule:     "gate/review-incomplete",
-		Severity: gate.Blocker,
-		File:     "",
-		Title:    "The idiom review did not complete",
-		Detail: "The reviewer produced no findings file, so nothing has judged whether this " +
-			"change reads as native Swift.\n\n> " + reason,
-		Fix: "Re-run the failed job. If it keeps failing, check the CLAUDE_CODE_OAUTH_TOKEN " +
-			"secret and whether the subscription has run into its rate limit.",
-		Source: gate.FromAgent,
+// Lane turns what the harness knows about one judge into its result. The order of the
+// checks is the contract: no evidence, no run, and no valid file each become
+// CANNOT_EVALUATE before anything the judge said is read. Only after all three hold
+// does the judge's own output stand.
+func Lane(ev evidence.Result, judgeRan bool, findingsPath string) gate.Lane {
+	lane := gate.Lane{Name: string(ev.Lane)}
+	cannot := func(reason string) gate.Lane {
+		lane.Verdict, lane.Reason = gate.CannotEvaluate, reason
+		return lane
 	}
+	switch {
+	case !ev.Applies():
+		lane.Skipped = ev.Skipped
+		return lane
+	case !ev.OK():
+		return cannot("missing " + strings.Join(ev.Missing, "; "))
+	case !judgeRan:
+		return cannot("the judge step did not run to completion. Re-run the failed job; if it keeps " +
+			"failing, check the CLAUDE_CODE_OAUTH_TOKEN secret and the subscription's rate limit.")
+	}
+	summary, findings, err := Ingest(findingsPath)
+	if err != nil {
+		return cannot("the judge wrote nothing the harness can read: " + err.Error())
+	}
+	lane.Verdict, lane.Reason, lane.Findings = gate.VerdictFromFindings(findings), summary, findings
+	return lane
 }
 
 // SaveState and LoadState carry what `prepare` learned across to `decide`.

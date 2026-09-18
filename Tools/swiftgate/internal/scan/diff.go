@@ -241,3 +241,13 @@ func RefExists(repoDir, ref string) bool {
 	_, err := git(repoDir, "rev-parse", "--verify", "--quiet", ref+"^{commit}")
 	return err == nil
 }
+
+// CurrentBranch is the checked-out branch, or "" when HEAD is detached — which it is
+// on a pull_request runner, where the branch name arrives in GITHUB_HEAD_REF instead.
+func CurrentBranch(repoDir string) string {
+	out, err := git(repoDir, "symbolic-ref", "--short", "--quiet", "HEAD")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(out)
+}

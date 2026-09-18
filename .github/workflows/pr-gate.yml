@@ -1,9 +1,10 @@
 # The gate that stands between a pull request and main.
 #
-# Three jobs. `build` proves the code compiles and the suite is green. `idiom` runs
-# Tools/swiftgate, which asks whether the Swift is Swift — or Flutter with different
-# syntax. `gate` is the only job branch protection names, so jobs can be added or
-# renamed here without touching the protection rule.
+# Four jobs. `build` proves the code compiles and the suite is green. `readiness` runs
+# Tools/swiftgate: the deterministic rules, then each judge lane behind its evidence
+# gate, then the scorer that alone decides. `conventions` checks the branch rules.
+# `gate` is the only job branch protection names, so jobs can be added or renamed here
+# without touching the protection rule.
 name: PR gate
 
 on:
@@ -105,8 +106,8 @@ jobs:
       - name: Check documentation links
         run: python3 Tools/check-doc-links.py
 
-  idiom:
-    name: Swift idiom review
+  readiness:
+    name: Judge lanes and PR readiness
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -133,10 +134,9 @@ jobs:
           sparse-checkout: lib
           fetch-depth: 1
 
-      - name: Note when the spec is unavailable
-        if: steps.spec.outcome != 'success'
-        run: echo "::warning::The Flutter spec repo could not be checked out — the review will judge the Swift on its own merits. Check the FLUTTER_SPEC_TOKEN secret."
-
+      # No warning step here: on PR #1 this checkout "succeeded" with an empty tree, so
+      # a step keyed on its outcome never fired. The idiom lane's evidence gate in
+      # `prepare` reads the tree instead, and an empty one is CANNOT_EVALUATE, which blocks.
       - uses: actions/setup-go@v5
         with:
           go-version-file: Tools/swiftgate/go.mod
@@ -151,7 +151,8 @@ jobs:
         run: go build -o "$RUNNER_TEMP/swiftgate" .
 
       # Deterministic rules run first and cost nothing. They also produce the brief the
-      # reviewer reads, and tell the next step whether a review is worth starting.
+      # judges read, and assert each lane's evidence: the `idiom` output is true only
+      # when that lane has something to judge and everything it needs is on disk.
       - name: Prepare the review
         id: prep
         env:
@@ -167,18 +168,20 @@ jobs:
       # 401 behind "output hidden for security", and three runs failed with no cause.
       # Compare, never print.
       - name: Check the token is not padded
-        if: steps.prep.outputs.review == 'true'
+        if: steps.prep.outputs.idiom == 'true'
         env:
           TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           [ -n "$TOKEN" ] || { echo "::error::CLAUDE_CODE_OAUTH_TOKEN is not set."; exit 1; }
           [ "$TOKEN" = "$(printf '%s' "$TOKEN" | tr -d '[:space:]')" ] || { echo "::error::CLAUDE_CODE_OAUTH_TOKEN has leading or trailing whitespace — re-set it with the value trimmed."; exit 1; }
 
-      - name: Review for Flutter-isms
+      # Pinned to the commit behind v1 (v1.0.99 at the time), not the moving tag: the
+      # action runs with a write token on this repository's pull requests.
+      - name: Idiom lane
         id: reviewer
-        if: steps.prep.outputs.review == 'true'
+        if: steps.prep.outputs.idiom == 'true'
         continue-on-error: true
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@4036a180cf690f49529f5d8c79c998855287f590 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -201,7 +204,11 @@ jobs:
             --model claude-opus-5
             --allowedTools "Read,Grep,Glob,Write"
 
-      - name: Decide
+      # The scorer. Lanes are advisory; this is the only step that decides, and it
+      # decides on enumerable conditions: a static blocker, a lane that said BLOCK, or a
+      # lane that could not evaluate. One sticky comment per lane, each stamped with
+      # the head SHA so a stale verdict reads as stale.
+      - name: PR readiness
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SWIFTGATE_SHA: ${{ github.event.pull_request.head.sha }}
@@ -242,20 +249,20 @@ jobs:
   gate:
     name: Gate
     if: always()
-    needs: [build, idiom, conventions]
+    needs: [build, readiness, conventions]
     runs-on: ubuntu-latest
     steps:
       - name: Decide
         run: |
           set -euo pipefail
           build='${{ needs.build.result }}'
-          idiom='${{ needs.idiom.result }}'
+          readiness='${{ needs.readiness.result }}'
           conventions='${{ needs.conventions.result }}'
           echo "build: $build"
-          echo "idiom: $idiom"
+          echo "readiness: $readiness"
           echo "conventions: $conventions"
           failed=0
           [ "$build" = "success" ] || { echo "::error::Build or tests failed."; failed=1; }
-          [ "$idiom" = "success" ] || { echo "::error::The Swift idiom review is blocking this merge. Read the review comment on the pull request."; failed=1; }
+          [ "$readiness" = "success" ] || { echo "::error::PR readiness is blocking this merge. Read the readiness comment on the pull request: it lists every condition that fired."; failed=1; }
           [ "$conventions" = "success" ] || { echo "::error::Branch name, an ADR number, or the size cap — read the conventions job."; failed=1; }
           exit $failed
