@@ -9,7 +9,7 @@ equivalent file in the server repo reached 2,000 lines and stopped being readabl
 **Hard cap: 80 lines**, enforced by `Tools/check-doc-links.py`. If you are adding a line,
 consider which one you are removing.
 
-Last updated: 2026-09-16
+Last updated: 2026-09-18
 
 ---
 
@@ -27,9 +27,9 @@ from the production Firebase project beside `mindlens/Info.plist`; the file is g
 and a fresh clone get `UnavailableIdentityProvider` instead, and a Release build without it fails at
 launch (ADR 0010, `docs/features/auth.md`). Every sign-in is a real production account.
 
-Nothing reaches `main` except a PR through the gate — test, build, launch, settings + team + entitlement
-(Debug only), lint, doc links, `Tools/swiftgate` reviewed by Claude Code on the subscription, branch name,
-ADR numbers and size (ADR 0006, 0012, 0013). `main` is unprotected on this plan; `Tools/githooks` refuse the push.
+Nothing reaches `main` except a PR through the gate — test, build, launch, settings + team + entitlement (Debug
+only), lint, doc links, `Tools/swiftgate` static rules and judge lanes behind evidence gates with a deterministic
+scorer (only `idiom` scores yet), branch name, ADR numbers and size (ADR 0006, 0012–0014). `main` is unprotected on this plan; `Tools/githooks` refuse the push.
 
 ## Next action
 

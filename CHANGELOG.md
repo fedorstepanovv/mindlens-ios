@@ -10,6 +10,12 @@ progress log this project has produced before.
 ## [Unreleased]
 
 ### Added
+- `Tools/swiftgate` judge lanes: a verdict contract (`PASS · CONCERNS · BLOCK · CANNOT_EVALUATE`),
+  an evidence gate per lane run by `prepare` and on its own as `swiftgate evidence --lane`, and a
+  deterministic scorer in `decide` that alone blocks — on a static blocker, a lane `BLOCK`, or a
+  lane that could not evaluate. One SHA-stamped sticky comment per lane (ADR 0014).
+- `Tools/swiftgate/main_test.go` — replays PR #1's empty Flutter checkout end to end and asserts
+  the gate blocks with `CANNOT_EVALUATE`.
 - Documentation system: `CLAUDE.md` front door, `docs/` reference set, ADRs, and
   `docs/STATE.md` as a bounded current-state file.
 - `MindlensKit` local SPM package — `Core`, `Models`, `Networking`, `Persistence`,
@@ -96,6 +102,10 @@ progress log this project has produced before.
   plan, so the gate binds by convention; ADR 0006 had assumed otherwise.
 
 ### Changed
+- The PR gate's `idiom` job is `readiness`; the reviewer runs only when the idiom lane's evidence
+  is on disk, and `anthropics/claude-code-action` is pinned to the commit behind `v1`.
+- Three static rules removed as duplicates of SwiftLint errors: `flutter/impl-suffix`,
+  `swift/force-try-cast`, `swift/todo-in-gate`.
 - Split the memory system so no file grows without bound: `docs/STATE.md` is now
   current-state only (rewritten, never appended, capped at 80 lines), with history moving
   here and decisions to ADRs.
