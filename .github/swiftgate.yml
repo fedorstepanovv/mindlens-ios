@@ -15,10 +15,10 @@ max_diff_bytes: 180000
 override_label: gate-override
 
 # The judge lanes that score. Every lane's evidence is asserted and reported on every
-# pull request; only a lane listed here can block, and it goes on the list the day its
-# skill exists under .claude/skills/. A lane that could not evaluate — no evidence, no
-# run, output not the contract — is CANNOT_EVALUATE, and that blocks.
-lanes: [idiom]
+# pull request; only a lane listed here can block. Each has a skill under
+# .claude/skills/lane-<name>/. A lane that could not evaluate — no evidence, no run,
+# output not the contract — is CANNOT_EVALUATE, and that blocks.
+lanes: [verification, idiom, spec]
 
 severities:
   # Absolute in CLAUDE.md and docs/ — these stop a merge.

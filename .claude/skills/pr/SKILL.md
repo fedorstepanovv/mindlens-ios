@@ -52,11 +52,12 @@ check. The rules are ADR 0013; the body it fills is `.github/PULL_REQUEST_TEMPLA
 ## Mode: status — `/pr status`
 
 1. `gh pr view --json number,title,mergeable,mergeStateStatus,statusCheckRollup,labels`.
-2. If a check failed, read the gate's comment — the one starting `<!-- swiftgate:report -->`
-   — and separate the two kinds of red. `gate/review-incomplete` means the reviewer never ran:
-   an infrastructure fault, so re-run the job and read the reviewer step's log. Every other
-   finding is a claim about the code, answered in code or waived in place with
-   `// swiftgate:allow <rule> — reason`.
+2. If a check failed, read the readiness comment — the one starting `<!-- swiftgate:report -->`
+   — which lists every condition that fired, then the lane comment it points at. Separate the
+   two kinds of red. A lane at `CANNOT_EVALUATE` never judged: its comment says whether
+   evidence was missing (fix the input it names) or the judge did not run (re-run the job and
+   read that lane's step log). Every finding is a claim about the code, answered in code or,
+   for a static rule, waived in place with `// swiftgate:allow <rule> — reason`.
 3. Report in under ten lines: what is red, why, and the one next action.
 
 ## Mode: land — `/pr land`

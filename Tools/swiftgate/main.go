@@ -16,6 +16,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -98,7 +99,8 @@ func prepare(ctx context.Context, args []string) int {
 		return fail(err)
 	}
 
-	diff, err := scan.Collect(*repoDir, normaliseBase(*repoDir, *base), *head, cfg.MaxDiffBytes)
+	baseRef := normaliseBase(*repoDir, *base)
+	diff, err := scan.Collect(*repoDir, baseRef, *head, cfg.MaxDiffBytes)
 	if err != nil {
 		return fail(err)
 	}
@@ -108,12 +110,15 @@ func prepare(ctx context.Context, args []string) int {
 		return fail(err)
 	}
 
+	// From the base branch's tip, not the merge base: the newest merged code is the standard.
+	exemplars := scan.Exemplars(*repoDir, baseRef, diff.SwiftFiles(), exemplarsPerFile, exemplarBytes)
+	headBranch := branchName(*repoDir, *branch, *head)
 	state := review.State{
-		Meta:     review.Meta{Number: *pr, SHA: headSHA()},
+		Meta:     review.Meta{Number: *pr, SHA: headSHA(), Branch: headBranch},
 		Base:     diff.Base,
 		Head:     *head,
 		Files:    diff.Paths(),
-		Evidence: evidence.All(evidenceInputs(*repoDir, diff, branchName(*repoDir, *branch, *head))),
+		Evidence: evidence.All(evidenceInputs(*repoDir, diff, headBranch, len(exemplars))),
 	}
 	scoring := map[evidence.Lane]bool{}
 	for _, lane := range cfg.lanes() {
@@ -129,8 +134,11 @@ func prepare(ctx context.Context, args []string) int {
 		default:
 			fmt.Printf("::notice::%s lane is not scoring yet, and could not evaluate this: missing %s\n", lane, strings.Join(ev.Missing, "; "))
 		}
-		setOutput(string(lane), fmt.Sprint(ev.Applies() && ev.OK()))
+		// A lane's step in the workflow runs on this output: it has something to judge,
+		// its evidence is there, and the config lets it score.
+		setOutput(string(lane), fmt.Sprint(ev.Applies() && ev.OK() && scoring[lane]))
 	}
+	setOutput("schema", compactJSON(review.Schema))
 
 	if len(diff.SwiftFiles()) == 0 {
 		state.Skipped = "no Swift changed in this pull request."
@@ -149,10 +157,11 @@ func prepare(ctx context.Context, args []string) int {
 	flutter := filepath.Join(*repoDir, review.FlutterDir)
 	_, statErr := os.Stat(flutter)
 	if statErr != nil {
-		fmt.Fprintf(os.Stderr, "swiftgate: no Flutter spec at %s — the review will judge the Swift alone\n", review.FlutterDir)
+		fmt.Fprintf(os.Stderr, "swiftgate: no Flutter spec at %s — context only, the lanes do not need it\n", review.FlutterDir)
 	}
 
-	if err := review.Prepare(dir, diff, state.Meta, static, statErr == nil); err != nil {
+	fmt.Fprintf(os.Stderr, "swiftgate: %d exemplar(s) retrieved from %s\n", len(exemplars), baseRef)
+	if err := review.Prepare(dir, diff, state.Meta, static, exemplars, statErr == nil); err != nil {
 		return fail(err)
 	}
 	state.Reviewed = true
@@ -182,12 +191,14 @@ func evidenceCmd(args []string) int {
 	if err != nil {
 		return fail(err)
 	}
-	diff, err := scan.Collect(*repoDir, normaliseBase(*repoDir, *base), *head, cfg.MaxDiffBytes)
+	baseRef := normaliseBase(*repoDir, *base)
+	diff, err := scan.Collect(*repoDir, baseRef, *head, cfg.MaxDiffBytes)
 	if err != nil {
 		return fail(err)
 	}
 
-	ev := evidence.Check(lane, evidenceInputs(*repoDir, diff, branchName(*repoDir, *branch, *head)))
+	exemplars := scan.Exemplars(*repoDir, baseRef, diff.SwiftFiles(), exemplarsPerFile, exemplarBytes)
+	ev := evidence.Check(lane, evidenceInputs(*repoDir, diff, branchName(*repoDir, *branch, *head), len(exemplars)))
 	data, _ := json.MarshalIndent(ev, "", "  ")
 	fmt.Println(string(data))
 	fmt.Fprintf(os.Stderr, "swiftgate: %s\n", ev)
@@ -197,8 +208,23 @@ func evidenceCmd(args []string) int {
 	return exitPass
 }
 
-func evidenceInputs(repoDir string, diff scan.Diff, branch string) evidence.Inputs {
-	return evidence.Inputs{RepoDir: repoDir, Diff: diff, Branch: branch, FlutterDir: review.FlutterDir}
+// How much of the repository an idiom judge is handed as its standard: up to three
+// merged files per changed one, each capped so a long view does not crowd out the diff.
+const (
+	exemplarsPerFile = 3
+	exemplarBytes    = 8_000
+)
+
+func evidenceInputs(repoDir string, diff scan.Diff, branch string, exemplars int) evidence.Inputs {
+	return evidence.Inputs{RepoDir: repoDir, Diff: diff, Branch: branch, Exemplars: exemplars}
+}
+
+func compactJSON(s string) string {
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, []byte(s)); err != nil {
+		return s
+	}
+	return buf.String()
 }
 
 // branchName is the head branch: the flag, else the checked-out branch, else the head
@@ -236,7 +262,16 @@ func decide(ctx context.Context, args []string) int {
 	configPath := fs.String("config", ".github/swiftgate.yml", "gate configuration")
 	comment := fs.Bool("comment", false, "post the verdict to the pull request")
 	inline := fs.Bool("inline", false, "also attach findings to the lines they are about")
-	reviewerRan := fs.Bool("reviewer-ran", true, "whether the judge step actually executed")
+	ran := map[evidence.Lane]bool{}
+	fs.Func("ran", "whether a lane's judge step ran to completion, as <lane>=<true|false>; repeatable, default true", func(v string) error {
+		name, value, ok := strings.Cut(v, "=")
+		lane, known := evidence.Parse(name)
+		if !ok || !known {
+			return fmt.Errorf("--ran wants <lane>=<true|false>, got %q", v)
+		}
+		ran[lane] = value == "true"
+		return nil
+	})
 	reviewer := fs.String("reviewer", "Claude Code", "what to credit in the lane footer")
 	jsonOut := fs.String("json", "", "write the merged findings here")
 	_ = fs.Parse(args)
@@ -271,7 +306,8 @@ func decide(ctx context.Context, args []string) int {
 			if !known {
 				ev = evidence.Result{Lane: name, Missing: []string{"an evidence result from `swiftgate prepare`"}}
 			}
-			lane := review.Lane(ev, *reviewerRan, filepath.Join(dir, review.LaneFindingsFile(name)))
+			judgeRan, said := ran[name]
+			lane := review.Lane(ev, judgeRan || !said, filepath.Join(dir, review.LaneFindingsFile(name)))
 			result.Lanes = append(result.Lanes, lane)
 			fmt.Fprintf(os.Stderr, "swiftgate: lane %s → %s (%d finding(s))\n", lane.Name, lane.Verdict, len(lane.Findings))
 		}

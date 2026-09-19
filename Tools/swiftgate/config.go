@@ -33,7 +33,7 @@ func defaultConfig() Config {
 	return Config{
 		MaxDiffBytes:  180_000,
 		OverrideLabel: "gate-override",
-		Lanes:         []string{string(evidence.Idiom)},
+		Lanes:         []string{string(evidence.Verification), string(evidence.Idiom), string(evidence.Spec)},
 	}
 }
 

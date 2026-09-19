@@ -47,8 +47,10 @@ type Inputs struct {
 	// Branch is the head branch, e.g. feature/auth. The spec lane reads the feature file
 	// it names.
 	Branch string
-	// FlutterDir is where CI checks the Flutter spec out, relative to RepoDir.
-	FlutterDir string
+	// Exemplars is how many merged files were retrieved for the idiom lane to judge
+	// against. The Dart checkout used to be this lane's evidence; it never worked, and
+	// a positive oracle from this repository needs no second checkout.
+	Exemplars int
 }
 
 // Result is what one lane's gate found: each required input, present or missing.
@@ -137,8 +139,9 @@ func verification(in Inputs) Result {
 	return r
 }
 
-// idiom needs the diff and the Flutter spec the rubric greps. An empty checkout is the
-// bug this package exists for: the directory was there, the Dart was not.
+// idiom needs the diff and at least one exemplar to hold it against. The bug this
+// package exists for was a judge run without its standard: the checkout directory was
+// there, the Dart was not, and the gate passed.
 func idiom(in Inputs) Result {
 	r := Result{Lane: Idiom}
 	if len(in.Diff.SwiftFiles()) == 0 {
@@ -150,11 +153,10 @@ func idiom(in Inputs) Result {
 	} else {
 		r.Present = append(r.Present, fmt.Sprintf("a diff over %d Swift file(s)", len(in.Diff.SwiftFiles())))
 	}
-	lib := filepath.Join(in.FlutterDir, "lib")
-	if n := countFiles(filepath.Join(in.RepoDir, lib), ".dart"); n > 0 {
-		r.Present = append(r.Present, fmt.Sprintf("%d Dart file(s) under %s", n, lib))
+	if in.Exemplars > 0 {
+		r.Present = append(r.Present, fmt.Sprintf("%d exemplar(s) from the base branch", in.Exemplars))
 	} else {
-		r.Missing = append(r.Missing, fmt.Sprintf("a Dart file under %s — the checkout produced an empty tree, or did not run", lib))
+		r.Missing = append(r.Missing, "an exemplar — no merged Swift resembles the changed files, so the lane has no standard to hold them to")
 	}
 	return r
 }

@@ -32,9 +32,30 @@ func ParseVerdict(s string) (Verdict, bool) {
 	return "", false
 }
 
-// VerdictFromFindings is the harness's reading of a lane's findings — the verdict a
-// judge implies by the severities it chose. It stands in until each judge returns the
-// verdict itself as structured output.
+func (v Verdict) rank() int {
+	switch v {
+	case Pass:
+		return 0
+	case Concerns:
+		return 1
+	case Block:
+		return 2
+	default:
+		return 3
+	}
+}
+
+// Worse returns the more severe of two verdicts. A judge that lists a blocker and says
+// PASS has contradicted itself; the findings win, because they are what a reader acts on.
+func Worse(a, b Verdict) Verdict {
+	if b.rank() > a.rank() {
+		return b
+	}
+	return a
+}
+
+// VerdictFromFindings is the verdict a judge implies by the severities it chose. It is
+// cross-checked against the verdict the judge returned, and the worse one stands.
 func VerdictFromFindings(fs []Finding) Verdict {
 	v := Pass
 	for _, f := range fs {
