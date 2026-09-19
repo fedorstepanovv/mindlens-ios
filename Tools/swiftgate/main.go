@@ -6,7 +6,9 @@
 //	                    lane's evidence is on disk, write the brief
 //	<the judges run>    Claude Code reads the brief, writes its findings
 //	swiftgate decide    score the static findings and every lane's verdict, comment
-//	                    on the PR, set the exit code
+//	                    on the PR, set the exit code, record one metrics line per lane
+//	swiftgate outcomes  at merge time, say what became of each finding
+//	swiftgate metrics   sum the records into the report that says which lane earns its keep
 //
 // Splitting them is what lets the judgement half run as Claude Code — billed to a
 // subscription — while the decision stays here, in a process that can fail a build.
@@ -27,10 +29,12 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/evidence"
 	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/gate"
 	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/ghpr"
+	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/metrics"
 	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/review"
 	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/scan"
 )
@@ -48,7 +52,16 @@ const usage = `swiftgate — the merge gate for this repository.
   swiftgate evidence  Assert one lane's evidence is on disk: --lane verification|idiom|spec.
                       Exit non-zero when it is not. Absence is read off a list, never judged.
   swiftgate decide    Score the static findings and every lane's verdict, comment on the
-                      pull request, and exit non-zero if anything blocks.
+                      pull request, and exit non-zero if anything blocks. Appends one
+                      metrics record per lane to .swiftgate/run/metrics.jsonl.
+  swiftgate outcomes  At merge time, classify each finding the gate raised on a pull
+                      request as changed, resolved, waived or untouched: --pr N --head <sha>.
+  swiftgate metrics   Sum the records under the paths given (default .swiftgate/metrics)
+                      into a Markdown report: verdicts, cost, duration and noise per lane,
+                      fires per rule, rules that never fired. To fetch the records:
+                        gh api "/repos/$R/actions/artifacts?per_page=100" --paginate \
+                          --jq '.artifacts[] | select(.name | startswith("swiftgate-metrics-") or startswith("swiftgate-outcomes-")) | .id' \
+                          | while read id; do gh api "/repos/$R/actions/artifacts/$id/zip" > "$id.zip"; unzip -oq "$id.zip" -d .swiftgate/metrics/"$id"; done
   swiftgate check     Run the deterministic rules and print the report. No reviewer, no
                       API key, no network. This is the one to run locally.
 
@@ -70,6 +83,10 @@ func main() {
 		os.Exit(evidenceCmd(os.Args[2:]))
 	case "decide":
 		os.Exit(decide(ctx, os.Args[2:]))
+	case "outcomes":
+		os.Exit(outcomes(os.Args[2:]))
+	case "metrics":
+		os.Exit(metricsCmd(os.Args[2:]))
 	case "check":
 		os.Exit(check(os.Args[2:]))
 	case "-h", "--help", "help":
@@ -274,6 +291,7 @@ func decide(ctx context.Context, args []string) int {
 	})
 	reviewer := fs.String("reviewer", "Claude Code", "what to credit in the lane footer")
 	jsonOut := fs.String("json", "", "write the merged findings here")
+	metricsOut := fs.String("metrics", review.MetricsFile, "write one metrics record per lane here, relative to the run dir; empty to skip")
 	_ = fs.Parse(args)
 
 	cfg, err := loadConfig(*repoDir, *configPath)
@@ -288,9 +306,9 @@ func decide(ctx context.Context, args []string) int {
 	}
 
 	result := &gate.Result{Skipped: state.Skipped, Reviewer: *reviewer}
+	var static []gate.Finding
 
 	if state.Skipped == "" {
-		var static []gate.Finding
 		if err := readJSON(filepath.Join(dir, review.StaticFile), &static); err != nil {
 			return fail(err)
 		}
@@ -316,6 +334,17 @@ func decide(ctx context.Context, args []string) int {
 	result.Normalise()
 	result.Override = overrideReason(ctx, cfg, state.Meta.Number, result)
 
+	sha := envOr("SWIFTGATE_SHA", state.Meta.SHA)
+	if sha == "" {
+		sha = scan.Rev(*repoDir, state.Head)
+	}
+	if *metricsOut != "" && state.Skipped == "" {
+		run := metrics.Run{PR: state.Meta.Number, SHA: sha, Branch: state.Meta.Branch, URL: runURL()}
+		if err := recordMetrics(dir, filepath.Join(dir, *metricsOut), run, result, state); err != nil {
+			fmt.Fprintf(os.Stderr, "swiftgate: metrics not recorded: %v\n", err)
+		}
+	}
+
 	// Re-diffing here would be wasteful, but inline comments need the added-line map to
 	// avoid a 422 on the whole review. Only pay for it when inline is actually on.
 	var diff scan.Diff
@@ -327,12 +356,186 @@ func decide(ctx context.Context, args []string) int {
 
 	return report(ctx, result, diff, reportOptions{
 		pr:      state.Meta.Number,
-		sha:     envOr("SWIFTGATE_SHA", state.Meta.SHA),
+		sha:     sha,
 		comment: *comment,
 		inline:  *inline,
 		jsonOut: *jsonOut,
 		label:   cfg.OverrideLabel,
 	})
+}
+
+// recordMetrics writes what this run produced, one line per lane and one for the
+// static pass, for the metrics artifact. It runs before the decision and never
+// changes it. Cost and duration come off each lane's execution file when the workflow
+// copied one in; a file the reader cannot make sense of is logged, and the record
+// says "not reported" rather than a number.
+func recordMetrics(dir, path string, run metrics.Run, result *gate.Result, state review.State) error {
+	_ = os.Remove(path) // a re-run of decide in the same directory starts over
+	records := []any{metrics.FromStatic(run, result.Findings)}
+	for _, lane := range result.Lanes {
+		name, _ := evidence.Parse(lane.Name)
+		exec, execPath := metrics.Execution{}, filepath.Join(dir, review.ExecutionFile(name))
+		if _, err := os.Stat(execPath); err == nil {
+			if exec, err = metrics.ReadExecution(execPath); err != nil {
+				fmt.Fprintf(os.Stderr, "swiftgate: %s execution file: %v — cost and duration not reported\n", lane.Name, err)
+			}
+		}
+		records = append(records, metrics.FromLane(run, lane, state.Evidence[name], exec))
+	}
+	if err := metrics.Append(path, records...); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "swiftgate: %d metrics record(s) → %s\n", len(records), path)
+	return nil
+}
+
+// --- outcomes ----------------------------------------------------------------
+
+// outcomes runs when a pull request merges. For every finding the gate raised on it,
+// it reads off git and the records what became of the finding, and writes one outcome
+// record each. untouched ÷ fires is the noise rate the metrics report shows.
+func outcomes(args []string) int {
+	fs := flag.NewFlagSet("outcomes", flag.ExitOnError)
+	repoDir := fs.String("repo", ".", "repository the pull request merged into")
+	pr := fs.Int("pr", 0, "pull request number")
+	head := fs.String("head", "", "the head commit that merged")
+	override := fs.Bool("override", false, "the pull request merged under the override label")
+	out := fs.String("out", filepath.Join(review.RunDir, "outcomes.jsonl"), "write the outcome records here")
+	var records []string
+	fs.Func("records", "a metrics .jsonl or a directory of them; repeatable", func(v string) error {
+		records = append(records, v)
+		return nil
+	})
+	_ = fs.Parse(args)
+	if *pr == 0 || *head == "" {
+		return fail(fmt.Errorf("outcomes needs --pr and --head"))
+	}
+	if len(records) == 0 {
+		records = []string{".swiftgate/metrics"}
+	}
+	for i, r := range records {
+		if !filepath.IsAbs(r) {
+			records[i] = filepath.Join(*repoDir, r)
+		}
+	}
+	headSHA := scan.Rev(*repoDir, *head)
+	if headSHA == "" {
+		return fail(fmt.Errorf("--head %q is not a commit in %s", *head, *repoDir))
+	}
+
+	recs, err := metrics.Read(records...)
+	if err != nil {
+		return fail(err)
+	}
+	raised := metrics.FirstRaised(recs.Lanes, *pr)
+	if len(raised) == 0 {
+		fmt.Fprintf(os.Stderr, "swiftgate: no findings recorded for #%d — nothing to classify\n", *pr)
+		return exitPass
+	}
+	_, headRun := metrics.HeadRun(recs.Lanes, *pr, headSHA)
+	if !headRun {
+		_, headRun = metrics.HeadRun(recs.Lanes, *pr, *head)
+	}
+	reported := metrics.ReportedAt(recs.Lanes, *pr, headSHA)
+	for k, v := range metrics.ReportedAt(recs.Lanes, *pr, *head) {
+		reported[k] = v
+	}
+
+	var written []metrics.OutcomeRecord
+	skipped := 0
+	for _, r := range raised {
+		ev := metrics.Evidence{Overridden: *override, HeadRun: headRun, StillReported: reported[r.Key]}
+		change, err := scan.Change(*repoDir, r.SHA, headSHA, r.File)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "swiftgate: %s at %s:%d could not be classified: %v\n", r.Rule, r.File, r.Line, err)
+			skipped++
+			continue
+		}
+		ev.Deleted, ev.Touched = change.Deleted, change.Covers(r.Line)
+		if !change.Deleted {
+			ev.Waived = scan.Waived(*repoDir, headSHA, r.File, r.Rule)
+		}
+		class, reason := metrics.Classify(ev)
+		written = append(written, metrics.OutcomeRecord{
+			Kind: metrics.KindOutcome, Schema: metrics.SchemaVersion, RecordedAt: time.Now().UTC(),
+			PR: *pr, SHA: r.SHA, Head: headSHA,
+			Lane: r.Lane, Rule: r.Rule, File: r.File, Line: r.Line,
+			Outcome: class, Reason: reason,
+		})
+	}
+
+	outPath := *out
+	if !filepath.IsAbs(outPath) {
+		outPath = filepath.Join(*repoDir, outPath)
+	}
+	_ = os.Remove(outPath)
+	all := make([]any, 0, len(written))
+	for _, w := range written {
+		all = append(all, w)
+	}
+	if err := metrics.Append(outPath, all...); err != nil {
+		return fail(err)
+	}
+
+	counts := map[metrics.Class]int{}
+	fmt.Printf("## Outcomes for #%d at %s\n\n| Lane | Rule | Location | Outcome | Why |\n|---|---|---|---|---|\n", *pr, shortSHA(headSHA))
+	for _, w := range written {
+		counts[w.Outcome]++
+		loc := w.File
+		if w.Line > 0 {
+			loc = fmt.Sprintf("%s:%d", w.File, w.Line)
+		}
+		fmt.Printf("| %s | `%s` | %s | **%s** | %s |\n", w.Lane, w.Rule, loc, w.Outcome, w.Reason)
+	}
+	var tail []string
+	for _, c := range metrics.Classes {
+		tail = append(tail, fmt.Sprintf("%d %s", counts[c], c))
+	}
+	fmt.Printf("\n%s", strings.Join(tail, " · "))
+	if skipped > 0 {
+		fmt.Printf(" · %d could not be classified (see the log)", skipped)
+	}
+	fmt.Printf("\n")
+	if summary := os.Getenv("GITHUB_STEP_SUMMARY"); summary != "" {
+		appendFile(summary, fmt.Sprintf("Outcomes for #%d: %s", *pr, strings.Join(tail, " · ")))
+	}
+	fmt.Fprintf(os.Stderr, "swiftgate: %d outcome record(s) → %s\n", len(written), outPath)
+	return exitPass
+}
+
+func shortSHA(s string) string {
+	if len(s) > 7 {
+		return s[:7]
+	}
+	return s
+}
+
+// --- metrics -----------------------------------------------------------------
+
+// metricsCmd sums every record under the paths given and prints the report.
+func metricsCmd(args []string) int {
+	fs := flag.NewFlagSet("metrics", flag.ExitOnError)
+	jsonOut := fs.String("json", "", "also write the summary as JSON here")
+	_ = fs.Parse(args)
+	paths := fs.Args()
+	if len(paths) == 0 {
+		paths = []string{".swiftgate/metrics"}
+	}
+	recs, err := metrics.Read(paths...)
+	if err != nil {
+		return fail(err)
+	}
+	summary := metrics.Summarise(recs, scan.RuleIDs())
+	fmt.Print(summary.Markdown())
+	if *jsonOut != "" {
+		if err := writeJSON(*jsonOut, summary); err != nil {
+			return fail(err)
+		}
+	}
+	if path := os.Getenv("GITHUB_STEP_SUMMARY"); path != "" {
+		appendFile(path, summary.Markdown())
+	}
+	return exitPass
 }
 
 // --- check -------------------------------------------------------------------
