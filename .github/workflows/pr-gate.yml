@@ -28,6 +28,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The doc-link check lets append-only history name a path that no longer
+          # exists, provided git remembers it. A shallow clone remembers nothing.
+          fetch-depth: 0
 
       - name: Select the newest installed Xcode
         run: |

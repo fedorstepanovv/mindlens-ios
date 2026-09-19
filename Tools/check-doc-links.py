@@ -9,7 +9,7 @@ impossible to commit one.
 Checks markdown links and backticked repo paths. Run from the repo root.
 """
 from __future__ import annotations
-import re, sys
+import re, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -35,6 +35,27 @@ def is_checkable(token: str) -> bool:
 # files, not a second home for ours. Without this the check fails for everyone the moment
 # a gate run is in flight, and a guard that fails when nothing is wrong gets switched off.
 SKIP_DIRS = {".git", ".build", ".swiftpm", "DerivedData", ".swiftgate", "worktrees"}
+
+# Files whose entries are never edited once they land. A path one of them names may have
+# been deleted since; that is history, not a lie — provided git remembers the path. A
+# typo, git does not remember.
+APPEND_ONLY = ("CHANGELOG.md", "docs/decisions/")
+
+
+def once_existed(target: str) -> bool:
+    out = subprocess.run(
+        ["git", "log", "--oneline", "-1", "--all", "--", target.rstrip("/")],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    return out.returncode == 0 and out.stdout.strip() != ""
+
+
+def inside_repo(path: Path) -> tuple[str, ...]:
+    """The path's parts below the repo root. SKIP_DIRS is matched against these, never
+    against the absolute path: a checkout under a directory called `worktrees` — which is
+    exactly where a git worktree lives — once made this script skip every document and
+    report success."""
+    return path.relative_to(ROOT).parts
 
 # Files that must stay small, and why. A status file that grows without bound stops
 # being read, which is how the equivalent doc in the server repo reached 2,000 lines.
@@ -127,7 +148,7 @@ def check_locations(docs: list[Path]) -> list[str]:
             problems.append(f"{rel} — {md.name} belongs in {where} and nowhere else.")
 
     for d in sorted(ROOT.rglob("docs")):
-        if d.is_dir() and d != ROOT / "docs" and not SKIP_DIRS.intersection(d.parts):
+        if d.is_dir() and d != ROOT / "docs" and not SKIP_DIRS.intersection(inside_repo(d)):
             problems.append(f"{d.relative_to(ROOT)} — there is one docs/ tree, at the repo root.")
     return problems
 
@@ -139,7 +160,11 @@ def main() -> int:
     # worktree. Report them, don't fail on them: their absence says nothing about
     # whether this repo's docs are honest.
     external: list[str] = []
-    docs = [md for md in sorted(ROOT.rglob("*.md")) if not SKIP_DIRS.intersection(md.parts)]
+    historical: list[str] = []
+    docs = [md for md in sorted(ROOT.rglob("*.md")) if not SKIP_DIRS.intersection(inside_repo(md))]
+    if not docs:
+        print("No documents found — the walk is broken, and a check that checks nothing must not pass.")
+        return 1
     for md in docs:
         rel = md.relative_to(ROOT)
         text = md.read_text(encoding="utf-8")
@@ -152,7 +177,18 @@ def main() -> int:
                 if any((base / target).resolve().exists() for base in (ROOT, md.parent)):
                     continue
                 entry = f"{rel}:{line_no}  →  {target}"
-                (external if target.startswith("../") else problems).append(entry)
+                if target.startswith("../"):
+                    external.append(entry)
+                elif rel.as_posix().startswith(APPEND_ONLY) and once_existed(target):
+                    historical.append(entry)
+                else:
+                    problems.append(entry)
+
+    if historical:
+        print("Historical references — the path is gone, and the file is append-only history:\n")
+        for h in historical:
+            print(f"  {h}")
+        print()
 
     if external:
         print("Sibling-repo references not resolvable here (expected in CI and worktrees):\n")
@@ -191,8 +227,8 @@ def main() -> int:
     if oversized or misplaced or disagreeing:
         return 1
 
-    print("Docs OK — every reference resolves, every capped file is within budget,\n"
-          "every document is in its one home, and every feature file agrees with the ledger.")
+    print(f"Docs OK — {len(docs)} documents checked; every reference resolves, every capped file is\n"
+          "within budget, every document is in its one home, and every feature file agrees with the ledger.")
     return 0
 
 if __name__ == "__main__":
