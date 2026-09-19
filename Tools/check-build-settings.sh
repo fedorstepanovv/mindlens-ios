@@ -75,6 +75,26 @@ elif ! otool -X -s __TEXT __entitlements "$exe" \
     status=1
 fi
 
+# Google Sign-In redirects to a custom URL scheme — the plist's REVERSED_CLIENT_ID — and the
+# scheme has to be declared statically in Info.plist. The SDK asserts it at the tap with an
+# Objective-C exception; the provider throws first; this reads both files off the built bundle
+# so the mismatch is a failed check, not a failed run. Only when a plist is bundled: CI and a
+# fresh clone have none, and cannot sign in with anything anyway. The value is never printed.
+resources_path=$(printf '%s\n' "$settings" | sed -n 's/^ *UNLOCALIZED_RESOURCES_FOLDER_PATH = //p' | head -1)
+google_plist="$products/$resources_path/GoogleService-Info.plist"
+if [ -f "$google_plist" ]; then
+    reversed=$(plutil -extract REVERSED_CLIENT_ID raw "$google_plist" 2>/dev/null || true)
+    if [ -z "$reversed" ]; then
+        printf '  %-30s %s\n' "REVERSED_CLIENT_ID" "absent from the bundled GoogleService-Info.plist"
+        printf '  %s\n' "(enable Google as a sign-in provider in the Firebase project and re-download the plist)"
+        status=1
+    elif ! plutil -extract CFBundleURLTypes json -o - "$plist" 2>/dev/null | grep -qF "\"$reversed\""; then
+        printf '  %-30s %s\n' "Google URL scheme" "the bundled plist's REVERSED_CLIENT_ID is not in CFBundleURLSchemes"
+        printf '  %s\n' "(declare it in mindlens/Info.plist under CFBundleURLTypes; Google cannot redirect back without it)"
+        status=1
+    fi
+fi
+
 if [ "$status" -ne 0 ]; then
     cat <<'MSG'
 
@@ -86,4 +106,6 @@ MSG
     exit 1
 fi
 
-echo "Build settings OK — Swift 6, iOS 18, complete concurrency, API URL intact, Sign in with Apple entitled."
+google_note="no GoogleService-Info.plist bundled"
+[ -f "$google_plist" ] && google_note="Google URL scheme declared"
+echo "Build settings OK — Swift 6, iOS 18, complete concurrency, API URL intact, Sign in with Apple entitled, $google_note."
