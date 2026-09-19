@@ -152,6 +152,11 @@ progress log this project has produced before.
   failed for everyone whenever a gate run was in flight.
 
 ### Fixed
+- `Tools/check-doc-links.py` checked nothing when run inside a worktree and reported success; it
+  now matches skip directories below the repo root and refuses to pass with zero documents. Append-only
+  history (`CHANGELOG.md`, `docs/decisions/`) may name a deleted path git still remembers.
+- `CLAUDE.md` was 157 lines against its cap of 150 after the worktree rule landed without waiting for the
+  gate. Trimmed back under the cap by rewording, no rule changed.
 - The pre-commit commit cap fired only when a pull request was already open: with none, bash 3.2
   rejected the empty `heads` array under `set -u`, and the fallback counted zero unreviewed commits.
 - The launch smoke test on GitHub's macOS runners: the simulator is booted before the builds

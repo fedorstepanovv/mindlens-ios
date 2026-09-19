@@ -19,12 +19,11 @@ Native iOS rewrite of the Mindlens mood-tracking app. SwiftUI · Swift 6 · SPM 
 | Building or changing any UI | `docs/DESIGN.md` |
 | Writing or changing tests | `docs/TESTING.md` |
 | Touching the network layer or a model | `docs/API.md` |
-| About to make a choice someone could question | `ls docs/decisions/` — check it isn't settled |
+| About to make a choice someone could question | `ls docs/decisions/` — check it isn't settled; re-list it right before adding an ADR, numbers have collided |
 | Looking for when or why something changed | `CHANGELOG.md`, then `git log` |
 | Opening, checking, or landing a pull request | `/pr` — the checklist is `.claude/skills/pr/SKILL.md` |
 
-**Do not read the whole `docs/` tree to start work.** It is reference, not a briefing;
-it costs context the task needs, and the routing above exists so you don't have to.
+**Do not read the whole `docs/` tree to start work.** It is reference, not a briefing; it costs context the task needs, and the routing above exists so you don't have to.
 
 ---
 
@@ -57,17 +56,15 @@ Never imitate its UI. Flutter approximates iOS because it must. We *are* iOS.
 
 ## MVVM, applied honestly
 
-A `@Observable @MainActor` ViewModel exists where there is real presentation state to
-coordinate. A view with no presentation logic binds directly to its model — **do not
-manufacture a ViewModel for every screen.** ViewModel-per-screen is a Cubit-per-screen
-habit and it reads as translated Flutter.
+A `@Observable @MainActor` ViewModel exists where there is real presentation state to coordinate.
+A view with no presentation logic binds directly to its model — **do not manufacture a ViewModel
+for every screen.** ViewModel-per-screen is a Cubit-per-screen habit and it reads as translated Flutter.
 
 ## Concurrency
 
-Swift 6 language mode, strict concurrency on. `async/await` is the default. Actors for
-shared mutable state. Combine only where it is genuinely the right tool — debounced
-input, `NotificationCenter` streams, multi-source merges — and never as the default way
-to move data between layers.
+Swift 6 language mode, strict concurrency on. `async/await` is the default. Actors for shared mutable
+state. Combine only where it is genuinely the right tool — debounced input, `NotificationCenter` streams,
+multi-source merges — and never as the default way to move data between layers.
 
 ## Design
 
@@ -126,14 +123,10 @@ More than one Claude session runs against this repository at once. Before overwr
 file you did not create in this session, check whether someone else has touched it — `git status`,
 or the file's mtime. Prefer targeted edits to whole-file rewrites for anything in `docs/`.
 
-**One worktree per branch; the main checkout stays on `main`.** A session works in its own
-worktree under `.claude/worktrees/<slug>` (gitignored), created from `origin/main`, and never
-switches the branch of a checkout it did not create — that checkout is another session's files.
-Refs are shared, so any branch can be pushed, reviewed or merged *by name* from any worktree.
-The worktree is removed when its branch lands, before the branch is deleted (`/pr land`, step 2).
-Never `git stash`: the stash is shared across worktrees; park work in a WIP commit instead.
-
-Re-list `docs/decisions/` immediately before adding an ADR: numbers have collided before.
+**One worktree per branch; the main checkout stays on `main`.** A session works in its own worktree
+under `.claude/worktrees/<slug>` (gitignored), created from `origin/main`, and never switches the branch
+of a checkout it did not create. Refs are shared: push, review and merge *by name* from any worktree; remove
+the worktree when its branch lands (`/pr land`, step 2). Never `git stash` — it is shared across worktrees.
 
 ## Starting, finishing, and landing a feature
 
