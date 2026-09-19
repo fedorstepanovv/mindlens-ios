@@ -126,6 +126,13 @@ More than one Claude session runs against this repository at once. Before overwr
 file you did not create in this session, check whether someone else has touched it — `git status`,
 or the file's mtime. Prefer targeted edits to whole-file rewrites for anything in `docs/`.
 
+**One worktree per branch; the main checkout stays on `main`.** A session works in its own
+worktree under `.claude/worktrees/<slug>` (gitignored), created from `origin/main`, and never
+switches the branch of a checkout it did not create — that checkout is another session's files.
+Refs are shared, so any branch can be pushed, reviewed or merged *by name* from any worktree.
+The worktree is removed when its branch lands, before the branch is deleted (`/pr land`, step 2).
+Never `git stash`: the stash is shared across worktrees; park work in a WIP commit instead.
+
 Re-list `docs/decisions/` immediately before adding an ADR: numbers have collided before.
 
 ## Starting, finishing, and landing a feature

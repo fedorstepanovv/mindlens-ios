@@ -105,6 +105,8 @@ progress log this project has produced before.
   plan, so the gate binds by convention; ADR 0006 had assumed otherwise.
 
 ### Changed
+- `CLAUDE.md`: one worktree per branch, and the main checkout stays on `main`. A session switched
+  the shared checkout to `feature/auth` under another session's feet; nothing was lost, once.
 - The PR gate's `idiom` job is `readiness`; the reviewer runs only when the idiom lane's evidence
   is on disk, and `anthropics/claude-code-action` is pinned to the commit behind `v1`.
 - Three static rules removed as duplicates of SwiftLint errors: `flutter/impl-suffix`,
