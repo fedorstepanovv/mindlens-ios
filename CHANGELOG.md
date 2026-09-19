@@ -137,6 +137,8 @@ progress log this project has produced before.
   failed for everyone whenever a gate run was in flight.
 
 ### Fixed
+- The pre-commit commit cap fired only when a pull request was already open: with none, bash 3.2
+  rejected the empty `heads` array under `set -u`, and the fallback counted zero unreviewed commits.
 - The launch smoke test on GitHub's macOS runners: the simulator is booted before the builds
   start instead of inside the first UI test, a failed launch is retried, and the screen wait
   is 60 s. Three of five runs had failed with no code change.
