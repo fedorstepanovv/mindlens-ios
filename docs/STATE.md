@@ -28,8 +28,8 @@ and a fresh clone get `UnavailableIdentityProvider` instead, and a Release build
 launch (ADR 0010, `docs/features/auth.md`). Every sign-in is a real production account.
 
 Nothing reaches `main` except a PR through the gate — test, build, launch, settings + team + entitlement (Debug
-only), lint, doc links, `Tools/swiftgate` static rules and judge lanes behind evidence gates with a deterministic
-scorer (only `idiom` scores yet), branch name, ADR numbers and size (ADR 0006, 0012–0014). `main` is unprotected on this plan; `Tools/githooks` refuse the push.
+only), lint, doc links, `Tools/swiftgate` static rules and three judge lanes (verification, idiom held to exemplars from
+this repo, spec) behind evidence gates and a deterministic scorer, branch name, ADR numbers, size (ADR 0006, 0012–0014). `main` is unprotected on this plan; `Tools/githooks` refuse the push.
 
 ## Next action
 
@@ -58,7 +58,7 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
   decoding runs against inline bodies labelled as constructed and swiftgate's fixture rule is
   waived in `AuthEndpoints.swift`. Capture both off a proxied real sign-in (`auth.md` step 5).
 - **The live refresh has never been observed** (restore only ran inside the 15-minute window), and
-  **`Persistence` has no test target** — `KeychainItem` has run for real in the app, never under a test.
+  **`Persistence` has no test target** — so the verification lane blocks any PR touching it until `auth.md` step 6.
 - **Sign-out leaves the Firebase user signed in** — the seam has no sign-out. Fine until account deletion.
 - **A transient restore failure parks in `restoring` with a retry**, correct only because no user
   row is cached; **the local store is not observable** either. SwiftData, the outbox, ADR 0003's gate: Stage 2.
