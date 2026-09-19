@@ -2,14 +2,17 @@
 //
 // It runs in two phases, because the two halves of the review have different needs.
 //
-//	swiftgate prepare   diff the PR, run the deterministic rules, write the brief
-//	<the reviewer runs>  Claude Code reads the brief, writes its findings
-//	swiftgate decide    merge both halves, comment on the PR, set the exit code
+//	swiftgate prepare   diff the PR, run the deterministic rules, assert each judge
+//	                    lane's evidence is on disk, write the brief
+//	<the judges run>    Claude Code reads the brief, writes its findings
+//	swiftgate decide    score the static findings and every lane's verdict, comment
+//	                    on the PR, set the exit code
 //
 // Splitting them is what lets the judgement half run as Claude Code — billed to a
 // subscription — while the decision stays here, in a process that can fail a build.
-// Blocking findings exit non-zero; wired to a required status check, that exit code is
-// the thing that actually stops a merge.
+// Lanes are advisory: they emit a verdict, and the deterministic scorer in
+// internal/gate alone decides. A lane whose evidence was missing, whose judge did not
+// run, or whose output was not the contract is CANNOT_EVALUATE, and that blocks.
 package main
 
 import (
@@ -24,6 +27,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/evidence"
 	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/gate"
 	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/ghpr"
 	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/review"
@@ -38,10 +42,12 @@ const (
 
 const usage = `swiftgate — the merge gate for this repository.
 
-  swiftgate prepare   Diff the pull request, run the deterministic rules, and write the
-                      brief the reviewer reads.
-  swiftgate decide    Merge both halves of the review, comment on the pull request, and
-                      exit non-zero if anything blocks.
+  swiftgate prepare   Diff the pull request, run the deterministic rules, assert each
+                      lane's evidence, and write the brief the judges read.
+  swiftgate evidence  Assert one lane's evidence is on disk: --lane verification|idiom|spec.
+                      Exit non-zero when it is not. Absence is read off a list, never judged.
+  swiftgate decide    Score the static findings and every lane's verdict, comment on the
+                      pull request, and exit non-zero if anything blocks.
   swiftgate check     Run the deterministic rules and print the report. No reviewer, no
                       API key, no network. This is the one to run locally.
 
@@ -59,6 +65,8 @@ func main() {
 	switch os.Args[1] {
 	case "prepare":
 		os.Exit(prepare(ctx, os.Args[2:]))
+	case "evidence":
+		os.Exit(evidenceCmd(os.Args[2:]))
 	case "decide":
 		os.Exit(decide(ctx, os.Args[2:]))
 	case "check":
@@ -81,6 +89,7 @@ func prepare(ctx context.Context, args []string) int {
 	configPath := fs.String("config", ".github/swiftgate.yml", "gate configuration")
 	base := fs.String("base", envOr("GITHUB_BASE_REF", "main"), "branch this PR merges into")
 	head := fs.String("head", "HEAD", "commit under review")
+	branch := fs.String("branch", envOr("GITHUB_HEAD_REF", ""), "head branch name; the spec lane reads the feature file it names")
 	pr := fs.Int("pr", 0, "pull request number")
 	_ = fs.Parse(args)
 
@@ -100,16 +109,32 @@ func prepare(ctx context.Context, args []string) int {
 	}
 
 	state := review.State{
-		Meta:  review.Meta{Number: *pr, SHA: headSHA()},
-		Base:  diff.Base,
-		Head:  *head,
-		Files: diff.Paths(),
+		Meta:     review.Meta{Number: *pr, SHA: headSHA()},
+		Base:     diff.Base,
+		Head:     *head,
+		Files:    diff.Paths(),
+		Evidence: evidence.All(evidenceInputs(*repoDir, diff, branchName(*repoDir, *branch, *head))),
+	}
+	scoring := map[evidence.Lane]bool{}
+	for _, lane := range cfg.lanes() {
+		scoring[lane] = true
+	}
+	for _, lane := range evidence.Lanes {
+		ev := state.Evidence[lane]
+		fmt.Fprintf(os.Stderr, "swiftgate: evidence · %s\n", ev)
+		switch {
+		case !ev.Applies() || ev.OK():
+		case scoring[lane]:
+			fmt.Printf("::error::%s lane cannot evaluate: missing %s\n", lane, strings.Join(ev.Missing, "; "))
+		default:
+			fmt.Printf("::notice::%s lane is not scoring yet, and could not evaluate this: missing %s\n", lane, strings.Join(ev.Missing, "; "))
+		}
+		setOutput(string(lane), fmt.Sprint(ev.Applies() && ev.OK()))
 	}
 
 	if len(diff.SwiftFiles()) == 0 {
 		state.Skipped = "no Swift changed in this pull request."
-		fmt.Fprintf(os.Stderr, "swiftgate: %s Skipping the reviewer.\n", state.Skipped)
-		setOutput("review", "false")
+		fmt.Fprintf(os.Stderr, "swiftgate: %s Skipping the judges.\n", state.Skipped)
 		return finishPrepare(dir, state, nil)
 	}
 
@@ -131,8 +156,65 @@ func prepare(ctx context.Context, args []string) int {
 		return fail(err)
 	}
 	state.Reviewed = true
-	setOutput("review", "true")
 	return finishPrepare(dir, state, static)
+}
+
+// --- evidence ----------------------------------------------------------------
+
+// evidenceCmd asserts one lane's inputs on their own, for a local check or a workflow
+// step that wants a visible red before spending a judge run. It reads the same list
+// prepare does; it does not judge.
+func evidenceCmd(args []string) int {
+	fs := flag.NewFlagSet("evidence", flag.ExitOnError)
+	repoDir := fs.String("repo", ".", "repository to check")
+	configPath := fs.String("config", ".github/swiftgate.yml", "gate configuration")
+	base := fs.String("base", envOr("GITHUB_BASE_REF", "main"), "branch this PR merges into")
+	head := fs.String("head", "HEAD", "commit under review")
+	branch := fs.String("branch", envOr("GITHUB_HEAD_REF", ""), "head branch name")
+	laneName := fs.String("lane", "", "verification, idiom or spec")
+	_ = fs.Parse(args)
+
+	lane, ok := evidence.Parse(*laneName)
+	if !ok {
+		return fail(fmt.Errorf("--lane must be one of %v, got %q", evidence.Lanes, *laneName))
+	}
+	cfg, err := loadConfig(*repoDir, *configPath)
+	if err != nil {
+		return fail(err)
+	}
+	diff, err := scan.Collect(*repoDir, normaliseBase(*repoDir, *base), *head, cfg.MaxDiffBytes)
+	if err != nil {
+		return fail(err)
+	}
+
+	ev := evidence.Check(lane, evidenceInputs(*repoDir, diff, branchName(*repoDir, *branch, *head)))
+	data, _ := json.MarshalIndent(ev, "", "  ")
+	fmt.Println(string(data))
+	fmt.Fprintf(os.Stderr, "swiftgate: %s\n", ev)
+	if ev.Applies() && !ev.OK() {
+		return exitBlocked
+	}
+	return exitPass
+}
+
+func evidenceInputs(repoDir string, diff scan.Diff, branch string) evidence.Inputs {
+	return evidence.Inputs{RepoDir: repoDir, Diff: diff, Branch: branch, FlutterDir: review.FlutterDir}
+}
+
+// branchName is the head branch: the flag, else the checked-out branch, else the head
+// ref when it reads as a branch name. On a runner the checkout is detached, so the flag
+// (fed from GITHUB_HEAD_REF) is the one that counts there.
+func branchName(repoDir, flag, head string) string {
+	if flag != "" {
+		return flag
+	}
+	if b := scan.CurrentBranch(repoDir); b != "" {
+		return b
+	}
+	if head != "HEAD" && !looksLikeSHA(head) {
+		return head
+	}
+	return ""
 }
 
 func finishPrepare(dir string, state review.State, static []gate.Finding) int {
@@ -154,8 +236,8 @@ func decide(ctx context.Context, args []string) int {
 	configPath := fs.String("config", ".github/swiftgate.yml", "gate configuration")
 	comment := fs.Bool("comment", false, "post the verdict to the pull request")
 	inline := fs.Bool("inline", false, "also attach findings to the lines they are about")
-	reviewerRan := fs.Bool("reviewer-ran", true, "whether the reviewer step actually executed")
-	reviewer := fs.String("reviewer", "Claude Code", "what to credit in the report footer")
+	reviewerRan := fs.Bool("reviewer-ran", true, "whether the judge step actually executed")
+	reviewer := fs.String("reviewer", "Claude Code", "what to credit in the lane footer")
 	jsonOut := fs.String("json", "", "write the merged findings here")
 	_ = fs.Parse(args)
 
@@ -182,18 +264,16 @@ func decide(ctx context.Context, args []string) int {
 		}
 		result.Add(static...)
 
-		if state.Reviewed {
-			verdict, agentFindings, err := review.Ingest(filepath.Join(dir, review.FindingsFile))
-			switch {
-			case err != nil && !*reviewerRan:
-				result.Add(review.Incomplete("The reviewer step did not run to completion."))
-			case err != nil:
-				result.Add(review.Incomplete(err.Error()))
-			default:
-				result.Verdict = verdict
-				result.Add(agentFindings...)
-				fmt.Fprintf(os.Stderr, "swiftgate: reviewer reported %d finding(s)\n", len(agentFindings))
+		// Only the lanes the config switches on can score; the rest were checked and
+		// reported by prepare, so the summary shows what would block once they exist.
+		for _, name := range cfg.lanes() {
+			ev, known := state.Evidence[name]
+			if !known {
+				ev = evidence.Result{Lane: name, Missing: []string{"an evidence result from `swiftgate prepare`"}}
 			}
+			lane := review.Lane(ev, *reviewerRan, filepath.Join(dir, review.LaneFindingsFile(name)))
+			result.Lanes = append(result.Lanes, lane)
+			fmt.Fprintf(os.Stderr, "swiftgate: lane %s → %s (%d finding(s))\n", lane.Name, lane.Verdict, len(lane.Findings))
 		}
 	}
 
@@ -267,13 +347,19 @@ type reportOptions struct {
 func report(ctx context.Context, result *gate.Result, diff scan.Diff, opt reportOptions) int {
 	repo := os.Getenv("GITHUB_REPOSITORY")
 
-	body := result.Markdown(gate.ReportContext{
-		Repo: repo, SHA: opt.sha, RunURL: runURL(),
-		Passed: result.Passed(), Override: result.Override,
-	})
+	ctxR := gate.ReportContext{Repo: repo, SHA: opt.sha, RunURL: runURL(), Override: result.Override}
+
+	// One sticky comment for the scorer, one per lane that applies, each stamped with
+	// the head SHA so a verdict about code that is gone reads as stale.
+	comments := []struct{ marker, body string }{{gate.ReportMarker, result.Markdown(ctxR)}}
+	for _, l := range result.Lanes {
+		if l.Skipped == "" {
+			comments = append(comments, struct{ marker, body string }{gate.LaneMarker(l.Name), l.Markdown(ctxR, result.Reviewer)})
+		}
+	}
 
 	if opt.jsonOut != "" {
-		if err := writeJSON(opt.jsonOut, result.Findings); err != nil {
+		if err := writeJSON(opt.jsonOut, result.All()); err != nil {
 			fmt.Fprintf(os.Stderr, "swiftgate: %v\n", err)
 		}
 	}
@@ -283,33 +369,37 @@ func report(ctx context.Context, result *gate.Result, diff scan.Diff, opt report
 
 	if opt.comment && opt.pr > 0 && repo != "" && githubToken() != "" {
 		client := ghpr.New(githubToken(), repo)
-		if url, err := client.UpsertComment(ctx, opt.pr, body); err != nil {
-			fmt.Fprintf(os.Stderr, "swiftgate: could not post the review comment: %v\n", err)
-		} else {
-			fmt.Fprintf(os.Stderr, "swiftgate: %s\n", url)
+		for _, c := range comments {
+			if url, err := client.UpsertComment(ctx, opt.pr, c.marker, c.body); err != nil {
+				fmt.Fprintf(os.Stderr, "swiftgate: could not post %s: %v\n", c.marker, err)
+			} else {
+				fmt.Fprintf(os.Stderr, "swiftgate: %s\n", url)
+			}
 		}
 		if opt.inline && len(diff.Files) > 0 {
-			if err := client.PostInline(ctx, opt.pr, opt.sha, diff, result.Findings); err != nil {
+			if err := client.PostInline(ctx, opt.pr, opt.sha, diff, result.All()); err != nil {
 				fmt.Fprintf(os.Stderr, "swiftgate: inline comments skipped: %v\n", err)
 			}
 		}
 	} else {
-		fmt.Println(body)
+		for _, c := range comments {
+			fmt.Println(c.body)
+		}
 	}
 
-	blockers, warnings, nits := result.Counts()
+	decision := result.Decision()
 	switch {
 	case result.Skipped != "":
 		fmt.Fprintf(os.Stderr, "swiftgate: %s\n", result.Skipped)
 		return exitPass
-	case result.Override != "":
-		fmt.Fprintf(os.Stderr, "swiftgate: %d blocker(s) overridden by label %q\n", blockers, opt.label)
+	case decision.Blocked && result.Override != "":
+		fmt.Fprintf(os.Stderr, "swiftgate: blocked on %s — overridden by label %q\n", strings.Join(decision.Reasons, "; "), opt.label)
 		return exitPass
-	case blockers > 0:
-		fmt.Fprintf(os.Stderr, "swiftgate: BLOCKED — %d blocker(s), %d warning(s), %d nit(s)\n", blockers, warnings, nits)
+	case decision.Blocked:
+		fmt.Fprintf(os.Stderr, "swiftgate: BLOCKED — %s\n", strings.Join(decision.Reasons, "; "))
 		return exitBlocked
 	default:
-		fmt.Fprintf(os.Stderr, "swiftgate: passed — %d warning(s), %d nit(s)\n", warnings, nits)
+		fmt.Fprintf(os.Stderr, "swiftgate: ready\n")
 		return exitPass
 	}
 }
@@ -320,7 +410,7 @@ var overridePattern = regexp.MustCompile(`(?im)^\s*(?:gate[- ]override|override)
 // overrideReason returns that justification. The label alone is not enough: without a
 // written reason the gate still blocks, which keeps the escape hatch honest.
 func overrideReason(ctx context.Context, cfg Config, pr int, result *gate.Result) string {
-	if len(result.Blockers()) == 0 || pr == 0 {
+	if !result.Blocked() || pr == 0 {
 		return ""
 	}
 	meta := prMetadata(ctx, pr)

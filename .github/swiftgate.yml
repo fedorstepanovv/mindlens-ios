@@ -2,7 +2,8 @@
 #
 # The rules themselves live in Tools/swiftgate/internal/scan/catalog.go. This file only
 # retunes them, so changing the gate's temperament is a one-line review rather than a Go
-# change. Valid severities: blocker, warning, nit, off.
+# change. Valid severities: blocker, warning, nit, off. Rules SwiftLint already enforces as
+# errors (`*Impl` names, force try/cast, TODOs) are not duplicated here.
 
 # The reviewer's model and turn limit live in .github/workflows/pr-gate.yml on the
 # claude_args line — they belong to the Claude Code step, not to this file.
@@ -13,10 +14,15 @@ max_diff_bytes: 180000
 # The reason is copied into the gate's comment, so the decision stays on the record.
 override_label: gate-override
 
+# The judge lanes that score. Every lane's evidence is asserted and reported on every
+# pull request; only a lane listed here can block, and it goes on the list the day its
+# skill exists under .claude/skills/. A lane that could not evaluate — no evidence, no
+# run, output not the contract — is CANNOT_EVALUATE, and that blocks.
+lanes: [idiom]
+
 severities:
   # Absolute in CLAUDE.md and docs/ — these stop a merge.
   flutter/observable-object: blocker
-  flutter/impl-suffix: blocker
   flutter/service-locator: blocker
   flutter/dart-file-naming: blocker
   arch/our-singleton: blocker
@@ -34,10 +40,6 @@ severities:
   # Real, but the documents leave room for judgement.
   swift/gcd-queue: warning
   swift/combine-as-transport: warning
-  swift/force-try-cast: warning
   design/print-logging: warning
   arch/dto-escapes-networking: warning
   flutter/widget-suffix: warning
-
-  # Reported quietly.
-  swift/todo-in-gate: nit

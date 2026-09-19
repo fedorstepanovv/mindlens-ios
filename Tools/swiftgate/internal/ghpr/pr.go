@@ -40,11 +40,12 @@ type comment struct {
 	Body string `json:"body"`
 }
 
-// UpsertComment edits the gate's existing comment on the PR, or posts a new one.
-// Editing matters: a gate that appends a comment on every push buries the discussion
-// it is supposed to support.
-func (c *Client) UpsertComment(ctx context.Context, pr int, body string) (string, error) {
-	existing, err := c.findMarked(ctx, pr)
+// UpsertComment edits the gate's existing comment carrying marker on the PR, or posts
+// a new one. Editing matters: a gate that appends a comment on every push buries the
+// discussion it is supposed to support. Each lane has its own marker, so each is its
+// own sticky comment.
+func (c *Client) UpsertComment(ctx context.Context, pr int, marker, body string) (string, error) {
+	existing, err := c.findMarked(ctx, pr, marker)
 	if err != nil {
 		return "", err
 	}
@@ -68,7 +69,7 @@ func (c *Client) UpsertComment(ctx context.Context, pr int, body string) (string
 	return out.HTMLURL, err
 }
 
-func (c *Client) findMarked(ctx context.Context, pr int) (int64, error) {
+func (c *Client) findMarked(ctx context.Context, pr int, marker string) (int64, error) {
 	var comments []comment
 	err := c.do(ctx, http.MethodGet,
 		fmt.Sprintf("/repos/%s/issues/%d/comments?per_page=100", c.Repo, pr), nil, &comments)
@@ -76,7 +77,7 @@ func (c *Client) findMarked(ctx context.Context, pr int) (int64, error) {
 		return 0, err
 	}
 	for _, cm := range comments {
-		if strings.Contains(cm.Body, gate.Marker) {
+		if strings.Contains(cm.Body, marker) {
 			return cm.ID, nil
 		}
 	}

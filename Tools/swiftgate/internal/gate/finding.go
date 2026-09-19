@@ -104,13 +104,15 @@ func (f Finding) Location() string {
 	return f.File
 }
 
-// Result is everything one run of the gate produced.
+// Result is everything one run of the gate produced: the deterministic findings, and
+// one Lane per judge that ran. The two are kept apart because they are scored apart —
+// a static blocker blocks, a lane's findings are the signal behind its verdict.
 type Result struct {
+	// Findings are the deterministic pass's. Lane findings live on the lane.
 	Findings []Finding
+	Lanes    []Lane
 	// Skipped is set when there was nothing to review, e.g. a docs-only PR.
 	Skipped string
-	// Verdict is the reviewer's plain-language read on the change as a whole.
-	Verdict string
 	// Reviewer names what produced the judgement half, for the report footer.
 	Reviewer string
 	// Override, when non-empty, is the reason a human gave for merging past a
@@ -118,47 +120,54 @@ type Result struct {
 	Override string
 }
 
-// Add merges another pass's findings in.
+// Add merges static findings in.
 func (r *Result) Add(fs ...Finding) { r.Findings = append(r.Findings, fs...) }
 
-// Blockers returns the findings that stop the merge.
-func (r *Result) Blockers() []Finding {
-	var out []Finding
-	for _, f := range r.Findings {
-		if f.Severity == Blocker {
-			out = append(out, f)
-		}
+// Decision runs the scorer over what this run produced.
+func (r *Result) Decision() Decision { return Score(r.Findings, r.Lanes) }
+
+// Blocked reports whether the scorer would stop the merge, before any override.
+func (r *Result) Blocked() bool { return r.Decision().Blocked }
+
+// Passed reports whether the merge may proceed.
+func (r *Result) Passed() bool { return !r.Blocked() || r.Override != "" }
+
+// All returns every finding, static first, for the outputs that want one list.
+func (r *Result) All() []Finding {
+	out := append([]Finding(nil), r.Findings...)
+	for _, l := range r.Lanes {
+		out = append(out, l.Findings...)
 	}
 	return out
 }
 
-// Passed reports whether the merge may proceed.
-func (r *Result) Passed() bool {
-	return len(r.Blockers()) == 0 || r.Override != ""
-}
-
-// Normalise drops disabled findings, removes duplicates, and orders the list so the
+// Normalise drops disabled findings, removes duplicates, and orders each list so the
 // report reads worst-first. Two passes noticing the same line is the common case —
 // the static rule wins, because it is the one a human can verify by reading it.
 func (r *Result) Normalise() {
-	seen := make(map[string]int, len(r.Findings))
-	var out []Finding
-
+	r.Findings = normalise(r.Findings, nil)
+	static := make(map[string]bool, len(r.Findings))
 	for _, f := range r.Findings {
-		if f.Severity == Off {
+		static[key(f)] = true
+	}
+	for i := range r.Lanes {
+		r.Lanes[i].Findings = normalise(r.Lanes[i].Findings, static)
+	}
+}
+
+func key(f Finding) string { return fmt.Sprintf("%s|%s|%d", f.Rule, f.File, f.Line) }
+
+func normalise(fs []Finding, drop map[string]bool) []Finding {
+	seen := make(map[string]bool, len(fs))
+	var out []Finding
+	for _, f := range fs {
+		k := key(f)
+		if f.Severity == Off || seen[k] || drop[k] {
 			continue
 		}
-		key := fmt.Sprintf("%s|%s|%d", f.Rule, f.File, f.Line)
-		if i, dup := seen[key]; dup {
-			if f.Source == FromStatic && out[i].Source != FromStatic {
-				out[i] = f
-			}
-			continue
-		}
-		seen[key] = len(out)
+		seen[k] = true
 		out = append(out, f)
 	}
-
 	sort.SliceStable(out, func(i, j int) bool {
 		a, b := out[i], out[j]
 		if a.Severity.rank() != b.Severity.rank() {
@@ -169,13 +178,12 @@ func (r *Result) Normalise() {
 		}
 		return a.Line < b.Line
 	})
-
-	r.Findings = out
+	return out
 }
 
-// Counts returns how many of each severity survived.
-func (r *Result) Counts() (blockers, warnings, nits int) {
-	for _, f := range r.Findings {
+// Counts returns how many of each severity are in a list.
+func Counts(fs []Finding) (blockers, warnings, nits int) {
+	for _, f := range fs {
 		switch f.Severity {
 		case Blocker:
 			blockers++
