@@ -20,12 +20,12 @@ zero=0000000000000000000000000000000000000000
 fail() { printf 'pre-commit: %s\n' "$*" >&2; exit 1; }
 
 # 1. main moves only by pull request.
-[ "$branch" = main ] && fail "commits go on a branch, never on main (ADR 0013): git switch -c <kind>/<slug>"
+[ "$branch" = main ] && fail "commits go on a branch, never on main (ADR 0013): git switch -c <kind>/<slug>, kind feature, bugfix, hotfix or docs"
 
-# 2. <kind>/<slug>. The two named branches predate the rule and land as they are.
+# 2. <kind>/<slug>, the git conventions: feature, bugfix, hotfix, docs (ADR 0015).
 case "$branch" in
-  feature/*|fix/*|docs/*|tooling/*|base-setup|gate/subscription-billing) ;;
-  *) fail "branch '$branch' is not <kind>/<slug> with kind feature, fix, docs or tooling (ADR 0013)" ;;
+  feature/*|bugfix/*|hotfix/*|docs/*) ;;
+  *) fail "branch '$branch' is not <kind>/<slug> with kind feature, bugfix, hotfix or docs (ADR 0015)" ;;
 esac
 
 if [ ! -f "$cache" ]; then
@@ -42,14 +42,15 @@ done < "$cache"
 
 # 3. Work nobody can see in a pull request is capped. base-setup reached twenty commits before
 #    anyone opened one. Counted against origin/main *and* every open PR head, so a branch stacked
-#    on an open pull request is charged only for its own commits. A draft PR lifts the cap.
-max=${MINDLENS_MAX_UNREVIEWED_COMMITS:-5}
+#    on an open pull request is charged only for its own commits. The cap is sized for one
+#    initiative on one branch (ADR 0015), not one step; it catches a branch that never lands.
+max=${MINDLENS_MAX_UNREVIEWED_COMMITS:-25}
 if [ "$this_has_pr" = 0 ]; then
   # ${heads[@]+"${heads[@]}"}: with no open pull request the array is empty, and bash 3.2 — the
   # one macOS ships — treats an empty array under `set -u` as unbound. The `|| echo 0` then
   # swallowed the error and the cap was silently off in exactly the case it exists for.
   unseen=$(git rev-list --count HEAD --not refs/remotes/origin/main ${heads[@]+"${heads[@]}"} 2>/dev/null || echo 0)
-  [ "$unseen" -ge "$max" ] && fail "$unseen commits on '$branch' are in no pull request (cap $max). Open one with /pr — a draft is fine — then commit."
+  [ "$unseen" -ge "$max" ] && fail "$unseen commits on '$branch' are in no pull request (cap $max). Open one with /pr, then commit."
 fi
 
 # 4. Your pushed branch is inside another open pull request. A commit here re-diverges what that

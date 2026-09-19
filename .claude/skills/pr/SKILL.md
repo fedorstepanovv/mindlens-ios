@@ -13,9 +13,9 @@ check. The rules are ADR 0013; the body it fills is `.github/PULL_REQUEST_TEMPLA
 
 - Never on `main`. Never `--force`. Never rewrite history that has been pushed — if a commit
   needs changing, say which and why, and let Fedir decide.
-- The branch is `<kind>/<slug>`, kind one of `feature`, `fix`, `docs`, `tooling`. A
-  `feature/<name>` branch has a `docs/features/<name>.md`. `base-setup` and
-  `gate/subscription-billing` predate the rule and are the only exceptions.
+- The branch is `<kind>/<slug>`, kind one of `feature`, `bugfix`, `hotfix`, `docs`, named for what
+  the reader gets. A product feature's `feature/<name>` has a `docs/features/<name>.md`; a
+  `feature/` branch without one is tooling, and the spec lane says so and skips (ADR 0015).
 - Fedir is the sole author. No trailer on any commit, no footer on the pull request.
 - A red gate is not merged. The only way past a blocker is the `gate-override` label plus a
   `Gate override: <reason>` line in the body — Fedir's decision, spoken in this session, never

@@ -60,8 +60,8 @@ func TestSpecLaneReadsTheFeatureFileOffTheBranchName(t *testing.T) {
 	in := Inputs{RepoDir: repo, Diff: swiftDiff(featureFile), Branch: "feature/auth"}
 
 	got := Check(Spec, in)
-	if got.OK() || !strings.Contains(got.Missing[0], "docs/features/auth.md") {
-		t.Fatalf("no feature file must be named as missing, got %+v", got)
+	if got.Applies() || !strings.Contains(got.Skipped, "docs/features/auth.md") {
+		t.Fatalf("a feature branch with no feature file is tooling: skipped, naming the file, got %+v", got)
 	}
 
 	if err := os.MkdirAll(filepath.Join(repo, "docs/features"), 0o755); err != nil {
@@ -81,7 +81,7 @@ func TestSpecLaneReadsTheFeatureFileOffTheBranchName(t *testing.T) {
 		t.Errorf("an open step is the evidence, got %+v", got)
 	}
 
-	for _, branch := range []string{"tooling/judge-lanes", "fix/x", "", "feature/"} {
+	for _, branch := range []string{"bugfix/x", "hotfix/x", "docs/x", "", "feature/"} {
 		if got := Check(Spec, Inputs{RepoDir: repo, Branch: branch}); got.Applies() {
 			t.Errorf("%q is not a feature branch; the spec lane should skip, got %+v", branch, got)
 		}

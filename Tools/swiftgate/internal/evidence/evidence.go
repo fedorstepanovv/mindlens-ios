@@ -163,7 +163,9 @@ func idiom(in Inputs) Result {
 
 var openStep = regexp.MustCompile(`(?m)^\d+\.\s+(?:🟡|⬜)`)
 
-// spec needs the feature file the branch names, with a step still open in it.
+// spec needs the feature file the branch names, with a step still open in it. Every
+// initiative is a feature/ branch (ADR 0015), so one with no feature file is tooling,
+// not a product feature: the lane skips, and the readiness comment shows that it did.
 func spec(in Inputs) Result {
 	r := Result{Lane: Spec}
 	name, ok := strings.CutPrefix(in.Branch, "feature/")
@@ -174,7 +176,7 @@ func spec(in Inputs) Result {
 	rel := "docs/features/" + name + ".md"
 	body, err := os.ReadFile(filepath.Join(in.RepoDir, filepath.FromSlash(rel)))
 	if err != nil {
-		r.Missing = append(r.Missing, rel)
+		r.Skipped = "no " + rel + " — a feature branch without a feature file is tooling, not a product feature"
 		return r
 	}
 	if !openStep.Match(body) {

@@ -35,7 +35,7 @@ this repo, spec) behind evidence gates and a deterministic scorer, branch name, 
 
 `feature/auth` for `docs/features/auth.md` step 5: capture the `/auth/apple` and `/auth/refresh` 200s off a
 proxied real sign-in, point the decoding tests at them, drop the waiver in `AuthEndpoints.swift`. Beside it, a
-`fix/` branch for the reviewer's two warnings on PR #1: cancellation at the `APIClient` boundary, and `RootView`'s placeholder copy.
+`bugfix/` branch for the reviewer's two warnings on PR #1: cancellation at the `APIClient` boundary, and `RootView`'s placeholder copy.
 
 ## Blocked on
 
