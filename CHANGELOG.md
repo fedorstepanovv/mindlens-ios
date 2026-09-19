@@ -115,6 +115,10 @@ progress log this project has produced before.
   plan, so the gate binds by convention; ADR 0006 had assumed otherwise.
 
 ### Changed
+- Branch conventions (ADR 0015, amending 0013): one branch per initiative, named for what the reader
+  gets, kind one of `feature`, `bugfix`, `hotfix`, `docs`. `tooling` and `fix` are gone. The pre-commit
+  cap on commits in no pull request rises from 5 to 25 and the size cap from 1,500 to 4,000 lines. A
+  `feature/` branch with no feature file is tooling: the spec lane skips it and says so.
 - `CLAUDE.md`: one worktree per branch, and the main checkout stays on `main`. A session switched
   the shared checkout to `feature/auth` under another session's feet; nothing was lost, once.
 - The PR gate's `idiom` job is `readiness`; the reviewer runs only when the idiom lane's evidence

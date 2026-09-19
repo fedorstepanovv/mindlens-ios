@@ -123,7 +123,7 @@ func brief(d scan.Diff, meta Meta, static []gate.Finding, exemplars []scan.Exemp
 	if meta.Branch != "" {
 		fmt.Fprintf(&b, "Branch `%s`.", meta.Branch)
 		if name, ok := strings.CutPrefix(meta.Branch, "feature/"); ok && name != "" {
-			fmt.Fprintf(&b, " Its feature file is `docs/features/%s.md`; the spec lane judges against the open step there.", name)
+			fmt.Fprintf(&b, " Its feature file, if this is a product feature, is `docs/features/%s.md`; the spec lane judges against the open step there.", name)
 		}
 		b.WriteString("\n\n")
 	}

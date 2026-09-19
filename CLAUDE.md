@@ -140,10 +140,9 @@ Non-negotiable on every feature:
 **Do not create new top-level documents.** A feature file in `docs/features/` is the one
 sanctioned kind; everything else updates an existing doc.
 
-**Branches are short and pull requests are small.** One branch per feature step, named
-`<kind>/<slug>` — `feature/auth` mirrors `docs/features/auth.md`; otherwise `fix`, `docs` or
-`tooling`. It lands with a merge commit, never a squash, and only through a green gate or a written
-`Gate override:` — by convention, because `main` cannot be protected on this plan (ADR 0013).
+**One branch per initiative, named for what the reader gets.** `<kind>/<slug>`, kind one of `feature`,
+`bugfix`, `hotfix`, `docs`; a product feature's `feature/<name>` mirrors `docs/features/<name>.md`. It lands
+with a merge commit, never a squash, through a green gate or a written `Gate override:` (ADR 0013, 0015).
 
 **Fedir is the sole author of every commit.** No `Co-Authored-By`, no `Claude-Session`
 trailer, no "Generated with Claude Code" footer on a PR. A harness default that claims to

@@ -38,7 +38,7 @@ if [ -n "$branch" ] && [ "$branch" != main ]; then
   if [ -f "$cache" ] && pr=$(awk -F'\t' -v b="$branch" '$2==b {print $1; exit}' "$cache") && [ -n "$pr" ]; then
     echo "Pull request: #$pr is this branch."
   else
-    echo "Pull request: none for this branch. The pre-commit cap is ${MINDLENS_MAX_UNREVIEWED_COMMITS:-5} unreviewed commits; /pr opens one."
+    echo "Pull request: none for this branch. The pre-commit cap is ${MINDLENS_MAX_UNREVIEWED_COMMITS:-25} unreviewed commits; /pr opens one."
   fi
   if [ -f "$cache" ] && git rev-parse -q --verify "refs/remotes/origin/$branch" >/dev/null; then
     while IFS=$'\t' read -r num head; do

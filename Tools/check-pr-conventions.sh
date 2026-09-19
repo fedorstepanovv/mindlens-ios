@@ -2,12 +2,12 @@
 # Three checks the gate runs on every pull request, from ADR 0013. Each one is a mistake this
 # repository has already made once.
 #
-#   branch   <kind>/<slug>, kind one of feature, fix, docs, tooling.
+#   branch   <kind>/<slug>, kind one of feature, bugfix, hotfix, docs (ADR 0015).
 #   adr      a decision number this PR adds must not exist, under another name, on the base
 #            branch or on the head of any other open pull request. 0006 collided between
 #            sessions; 0010 collided between branches.
-#   size     changed lines are capped, so "one pull request per step" is measured rather than
-#            hoped for. Lock files, the project file and captured fixtures do not count. The
+#   size     changed lines are capped, so "one pull request per initiative" stays one initiative.
+#            Lock files, the project file and captured fixtures do not count. The
 #            `size-override` label plus a body line `Size override: <why>` lifts the cap, and
 #            the reason is printed into the log — the same shape as the gate's own override.
 #
@@ -15,7 +15,7 @@
 set -uo pipefail
 
 pr=${1:?pull request number}
-cap=${MINDLENS_PR_SIZE_CAP:-1500}
+cap=${MINDLENS_PR_SIZE_CAP:-4000}
 repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 base=refs/remotes/origin/main
 failed=0
@@ -27,9 +27,8 @@ body=$(printf '%s' "$body" | base64 --decode)
 
 # --- branch ------------------------------------------------------------------------------------
 case "$head" in
-  feature/*|fix/*|docs/*|tooling/*) echo "branch: $head" ;;
-  base-setup|gate/subscription-billing) echo "branch: $head (predates ADR 0013)" ;;
-  *) fail "branch '$head' is not <kind>/<slug> with kind feature, fix, docs or tooling (ADR 0013)" ;;
+  feature/*|bugfix/*|hotfix/*|docs/*) echo "branch: $head" ;;
+  *) fail "branch '$head' is not <kind>/<slug> with kind feature, bugfix, hotfix or docs (ADR 0015)" ;;
 esac
 
 # --- adr numbers -------------------------------------------------------------------------------
@@ -61,7 +60,7 @@ if [ "$changed" -gt "$cap" ]; then
   elif [[ ",$labels," == *",size-override,"* ]]; then
     fail "size: $changed changed lines over the cap of $cap; the size-override label is set but the body has no 'Size override: <why>' line"
   else
-    fail "size: $changed changed lines, cap is $cap (ADR 0013: one pull request per step). Split it, or add the size-override label and a 'Size override: <why>' line to the body."
+    fail "size: $changed changed lines, cap is $cap (ADR 0015: one pull request per initiative). Split it, or add the size-override label and a 'Size override: <why>' line to the body."
   fi
 else
   echo "size: $changed changed lines (cap $cap)"
