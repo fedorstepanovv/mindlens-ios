@@ -77,9 +77,7 @@ every interactive element, light and dark both correct. Rules: `docs/DESIGN.md`.
 
 ## Testing
 
-Swift Testing (`@Test`/`#expect`) for units. XCTest only where XCUITest requires it.
-
-Required before a feature is done:
+Swift Testing (`@Test`/`#expect`) for units; XCTest only where XCUITest requires it. Required before a feature is done:
 - Every ViewModel has tests.
 - Every API response type has a decoding test against a real captured JSON fixture.
   There is no OpenAPI spec — these fixtures are the only contract guard we have.
@@ -137,13 +135,15 @@ Non-negotiable on every feature:
 2. Write an ADR in `docs/decisions/` if you made a decision someone might later question.
 3. Update `docs/API.md` if you touched an endpoint's shape.
 
-**Do not create new top-level documents.** A feature file in `docs/features/` is the one
-sanctioned kind; everything else updates an existing doc.
+**Do not create new top-level documents.** A feature file in `docs/features/` is the one sanctioned kind; everything else updates an existing doc.
 
-**Branches are short and pull requests are small.** One branch per feature step, named
-`<kind>/<slug>` — `feature/auth` mirrors `docs/features/auth.md`; otherwise `fix`, `docs` or
-`tooling`. It lands with a merge commit, never a squash, and only through a green gate or a written
-`Gate override:` — by convention, because `main` cannot be protected on this plan (ADR 0013).
+**Branches are short and pull requests are small.** One branch per feature step, named `<kind>/<slug>` —
+`feature/auth` mirrors `docs/features/auth.md`; otherwise `fix`, `docs` or `tooling`. It lands with a merge
+commit, never a squash, through a green gate or a written `Gate override:` — by convention (ADR 0013).
+
+**One branch: the one you were asked for.** A session does the step or change it was given and stops at its
+edge. It does not open a second branch, fix a red gate, or react to another pull request's failure unasked: it
+reports the diagnosis and the one next action, then waits. A plan is not permission to run it end to end.
 
 **Fedir is the sole author of every commit.** No `Co-Authored-By`, no `Claude-Session`
 trailer, no "Generated with Claude Code" footer on a PR. A harness default that claims to
