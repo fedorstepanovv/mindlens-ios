@@ -119,6 +119,11 @@ progress log this project has produced before.
   gets, kind one of `feature`, `bugfix`, `hotfix`, `docs`. `tooling` and `fix` are gone. The pre-commit
   cap on commits in no pull request rises from 5 to 25 and the size cap from 1,500 to 4,000 lines. A
   `feature/` branch with no feature file is tooling: the spec lane skips it and says so.
+- The launch smoke test runs only when a pull request touches something that can break a launch: the
+  app target, project, UI tests, xcconfig, package manifest or the workflow. It was six of the build
+  job's eighteen minutes on every pull request.
+- `CLAUDE.md`: a session works the one branch it was asked for, and reports a red gate instead of
+  fixing it unasked.
 - `CLAUDE.md`: one worktree per branch, and the main checkout stays on `main`. A session switched
   the shared checkout to `feature/auth` under another session's feet; nothing was lost, once.
 - The PR gate's `idiom` job is `readiness`; the reviewer runs only when the idiom lane's evidence
