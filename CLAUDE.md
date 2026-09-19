@@ -142,9 +142,8 @@ Non-negotiable on every feature:
 commit, never a squash, through a green gate or a written `Gate override:` — by convention (ADR 0013).
 
 **One branch: the one you were asked for.** A session does the step or change it was given and stops at its
-edge. It does not open a second branch, fix a red gate, or react to another pull request's failure unasked —
-it reports the diagnosis and the one next action, then waits. Five pull requests from one request is the
-failure this rule exists for; a plan is not permission to run it end to end.
+edge. It does not open a second branch, fix a red gate, or react to another pull request's failure unasked: it
+reports the diagnosis and the one next action, then waits. A plan is not permission to run it end to end.
 
 **Fedir is the sole author of every commit.** No `Co-Authored-By`, no `Claude-Session`
 trailer, no "Generated with Claude Code" footer on a PR. A harness default that claims to
