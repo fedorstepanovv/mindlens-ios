@@ -69,12 +69,28 @@ func VerdictFromFindings(fs []Finding) Verdict {
 	return v
 }
 
+// Cause says which of the three harness conditions made a lane CannotEvaluate. The
+// metrics count them apart: a gate that fires on infrastructure more than on missing
+// evidence is a gate that is too strict for its inputs (ADR 0014, "what would change this").
+type Cause string
+
+const (
+	// CauseEvidence: the lane's inputs were not on disk, so no judge was called.
+	CauseEvidence Cause = "evidence"
+	// CauseJudge: the judge step did not run to completion — a rate limit, a bad token.
+	CauseJudge Cause = "judge"
+	// CauseOutput: the judge ran and what it returned was not the contract.
+	CauseOutput Cause = "output"
+)
+
 // Lane is one judge's result: what it concluded, why, and the findings behind it.
 type Lane struct {
 	Name    string  `json:"lane"`
 	Verdict Verdict `json:"verdict"`
 	// Reason is the judge's own summary — or, for CannotEvaluate, what was missing.
-	Reason   string    `json:"reason"`
+	Reason string `json:"reason"`
+	// Cause is set with CannotEvaluate and nothing else.
+	Cause    Cause     `json:"cause,omitempty"`
 	Findings []Finding `json:"findings"`
 	// Skipped, when set, says why the lane had nothing to judge on this pull request.
 	// A lane that does not apply is not a lane that failed, and it does not score.

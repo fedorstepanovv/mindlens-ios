@@ -1,0 +1,5 @@
+[
+  {"type":"system","subtype":"init","session_id":"s1","model":"claude-opus-5"},
+  {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Reading the brief."}]}},
+  {"type":"result","subtype":"success","is_error":false,"duration_ms":83210,"duration_api_ms":70100,"num_turns":17,"total_cost_usd":1.2345,"usage":{"input_tokens":1200,"output_tokens":800}}
+]
