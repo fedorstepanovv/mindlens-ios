@@ -46,22 +46,11 @@ account lands in onboarding; a returning one on the dashboard.
 
 1. ✅ Sign-in screen and session gate, verified in the simulator at both text sizes and appearances.
 2. ✅ `APIAuthRepository`, `AuthTokenRefreshTransport`, `KeychainDeviceIdentity`; 79 tests; gate launches the app.
-3. ✅ Firebase Auth linked (app target only), `FirebaseIdentityProvider` does the Apple exchange,
-   entitlement and team asserted by the gate. A real sign-in lands signed in; relaunch restores.
-   The plist for the native bundle ID lives in the **production** Firebase project and is
-   gitignored; without it the build keeps the stand-in (Debug) or fails at launch (Release).
-4. 🟡 **Google Sign-In through the same seam** — code done, never run. `GoogleSignIn-iOS` 10 is
-   linked to the app target; `FirebaseIdentityProvider.signInWithGoogle()` presents from the key
-   window, exchanges through `GoogleAuthProvider`, and maps a closed sheet to `CancellationError`.
-   The client ID comes from the bundled plist at configure time — no `GIDClientID` copy in
-   Info.plist. The SDK would raise if the redirect scheme were missing; the provider checks first
-   and throws a logged `AppError` instead. No `.onOpenURL`: on iOS 18 the redirect returns through
-   `ASWebAuthenticationSession`, never an app URL open.
-   entries: `FirebaseIdentityProvider.signInWithGoogle()` · `SignInView.googleButton` ·
-   `CFBundleURLTypes` in `mindlens/Info.plist` (not there yet).
-   ready: "Continue with Google" completes and lands signed in.
-   blocked on: the `REVERSED_CLIENT_ID` from the production plist, pasted into `mindlens/Info.plist`
-   as a URL scheme — a public value the repo's read rules keep from the agent. Then a real run.
+3. ✅ Firebase Auth linked (app target only); `FirebaseIdentityProvider` does the Apple exchange; entitlement
+   and team asserted by the gate. A real sign-in lands signed in; relaunch restores. Plist: production project, gitignored.
+4. ✅ Google Sign-In through the same seam: `FirebaseIdentityProvider.signInWithGoogle()` presents from
+   the key window and exchanges through `GoogleAuthProvider`; the redirect scheme is `CFBundleURLTypes` in
+   `mindlens/Info.plist`, asserted against the bundled plist by `Tools/check-build-settings.sh`. Ran for real.
 5. ⬜ **Capture the two auth fixtures and drop the waiver** — save the `/auth/apple` 200 and a
    `/auth/refresh` 200 during a real sign-in, point the decoding tests at them, delete the
    inline bodies. Both are one-shot from the client (the refresh token rotates), so capture them
@@ -98,3 +87,6 @@ account lands in onboarding; a returning one on the dashboard.
 - 2026-09-11 — Google wired (step 4), unrun: `GoogleSignIn-iOS` 10.0.0 fits Firebase 12.19's
   graph (GTMSessionFetcher `3.3..<6`). The SDK asserts the redirect scheme with an ObjC
   exception at the tap; the provider derives it from the client ID and throws first.
+- 2026-09-19 — `Tools/check-build-settings.sh` asserts the bundled plist's `REVERSED_CLIENT_ID` is a declared
+  URL scheme in the built Info.plist; shown red before the scheme exists. The value is still pasted by hand.
+- 2026-09-19 — First real Google sign-in landed on the signed-in stub. Step 4 ticked.

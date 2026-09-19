@@ -10,6 +10,9 @@ progress log this project has produced before.
 ## [Unreleased]
 
 ### Added
+- Google Sign-In runs for real: the redirect scheme (`REVERSED_CLIENT_ID`) declared under
+  `CFBundleURLTypes` in `mindlens/Info.plist`, and `Tools/check-build-settings.sh` asserts it against the
+  bundled `GoogleService-Info.plist` when one is present (`docs/features/auth.md` step 4).
 - `Tools/swiftgate` judge lanes: a verdict contract (`PASS · CONCERNS · BLOCK · CANNOT_EVALUATE`),
   an evidence gate per lane run by `prepare` and on its own as `swiftgate evidence --lane`, and a
   deterministic scorer in `decide` that alone blocks — on a static blocker, a lane `BLOCK`, or a
