@@ -20,6 +20,9 @@ progress log this project has produced before.
 - Exemplar retrieval: `prepare` picks up to three merged files resembling each changed one, by kind,
   name and neighbourhood, and writes them into the brief. They are the idiom lane's evidence; the
   Flutter checkout is optional context.
+- Google Sign-In runs for real: the redirect scheme (`REVERSED_CLIENT_ID`) declared under
+  `CFBundleURLTypes` in `mindlens/Info.plist`, and `Tools/check-build-settings.sh` asserts it against the
+  bundled `GoogleService-Info.plist` when one is present (`docs/features/auth.md` step 4).
 - `Tools/swiftgate` judge lanes: a verdict contract (`PASS · CONCERNS · BLOCK · CANNOT_EVALUATE`),
   an evidence gate per lane run by `prepare` and on its own as `swiftgate evidence --lane`, and a
   deterministic scorer in `decide` that alone blocks — on a static blocker, a lane `BLOCK`, or a
@@ -112,6 +115,8 @@ progress log this project has produced before.
   plan, so the gate binds by convention; ADR 0006 had assumed otherwise.
 
 ### Changed
+- `CLAUDE.md`: one worktree per branch, and the main checkout stays on `main`. A session switched
+  the shared checkout to `feature/auth` under another session's feet; nothing was lost, once.
 - The PR gate's `idiom` job is `readiness`; the reviewer runs only when the idiom lane's evidence
   is on disk, and `anthropics/claude-code-action` is pinned to the commit behind `v1`.
 - Three static rules removed as duplicates of SwiftLint errors: `flutter/impl-suffix`,
@@ -147,6 +152,8 @@ progress log this project has produced before.
   failed for everyone whenever a gate run was in flight.
 
 ### Fixed
+- The pre-commit commit cap fired only when a pull request was already open: with none, bash 3.2
+  rejected the empty `heads` array under `set -u`, and the fallback counted zero unreviewed commits.
 - The launch smoke test on GitHub's macOS runners: the simulator is booted before the builds
   start instead of inside the first UI test, a failed launch is retried, and the screen wait
   is 60 s. Three of five runs had failed with no code change.

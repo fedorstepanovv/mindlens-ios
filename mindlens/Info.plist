@@ -10,5 +10,22 @@
 <dict>
 	<key>MindlensAPIBaseURL</key>
 	<string>$(API_BASE_URL)</string>
+	<!-- Google Sign-In redirects to this custom scheme: the REVERSED_CLIENT_ID of the production
+	     plist's iOS OAuth client for this bundle ID. A public value that ships in every build. The
+	     SDK asserts it at the tap; Tools/check-build-settings.sh asserts it against the bundled
+	     plist at build time. No GIDClientID here — the client ID is read from the plist itself. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>Google Sign-In</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.642843971268-ssie1juj6pqr46ch5k44hecb71arse7t</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -9,7 +9,7 @@ equivalent file in the server repo reached 2,000 lines and stopped being readabl
 **Hard cap: 80 lines**, enforced by `Tools/check-doc-links.py`. If you are adding a line,
 consider which one you are removing.
 
-Last updated: 2026-09-18
+Last updated: 2026-09-19
 
 ---
 
@@ -21,8 +21,8 @@ settings (ADR 0009). **79 tests across 19 suites pass** in ~2s. SwiftLint, swift
 **The app has UI, verified by running it** — the scene root switches on `SessionState`; signed-out
 is the sign-in screen, checked light/dark at default and the largest text size. The rest is stubs.
 
-**Sign in with Apple works against production** — Apple → Firebase → `POST /auth/apple` → signed-in
-stub, and a relaunch restores the session from the Keychain. It needs a `GoogleService-Info.plist`
+**Sign in with Apple and Google work against production** — provider → Firebase → `POST /auth/apple` →
+signed-in stub, and a relaunch restores the session from the Keychain. It needs a `GoogleService-Info.plist`
 from the production Firebase project beside `mindlens/Info.plist`; the file is gitignored, so CI
 and a fresh clone get `UnavailableIdentityProvider` instead, and a Release build without it fails at
 launch (ADR 0010, `docs/features/auth.md`). Every sign-in is a real production account.
@@ -33,9 +33,9 @@ this repo, spec) behind evidence gates and a deterministic scorer, branch name, 
 
 ## Next action
 
-`feature/auth` for `docs/features/auth.md` step 4: the `REVERSED_CLIENT_ID` URL scheme into
-`mindlens/Info.plist`, then a real "Continue with Google" — wired, never run. Beside it, a `fix/` branch for the
-reviewer's two warnings on PR #1: cancellation at the `APIClient` boundary, and `RootView`'s placeholder copy.
+`feature/auth` for `docs/features/auth.md` step 5: capture the `/auth/apple` and `/auth/refresh` 200s off a
+proxied real sign-in, point the decoding tests at them, drop the waiver in `AuthEndpoints.swift`. Beside it, a
+`fix/` branch for the reviewer's two warnings on PR #1: cancellation at the `APIClient` boundary, and `RootView`'s placeholder copy.
 
 ## Blocked on
 
@@ -45,7 +45,7 @@ Nothing.
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Authentication | 🟡 | `docs/features/auth.md`. Apple sign-in and restore work live. Google, live fixtures, Keychain tests left. |
+| 1 | Authentication | 🟡 | `docs/features/auth.md`. Apple and Google sign-in and restore work live. Live fixtures, Keychain tests left. |
 | 2 | Dashboard + Quick Log | 🟡 | `DashboardModel` tested against a stub. No views, no real repository. |
 | 3 | Insights + Recaps | ⬜ | Swift Charts; polls for server-side generation. |
 | 4 | Onboarding + Paywall | ⬜ | Survey polling, RevenueCat. The Flutter login screen bundles this survey ahead of sign-in. |
