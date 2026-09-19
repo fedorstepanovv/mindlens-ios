@@ -115,6 +115,11 @@ progress log this project has produced before.
   plan, so the gate binds by convention; ADR 0006 had assumed otherwise.
 
 ### Changed
+- The launch smoke test runs only when a pull request touches something that can break a launch: the
+  app target, project, UI tests, xcconfig, package manifest or the workflow. It was six of the build
+  job's eighteen minutes on every pull request.
+- `CLAUDE.md`: a session works the one branch it was asked for, and reports a red gate instead of
+  fixing it unasked.
 - `CLAUDE.md`: one worktree per branch, and the main checkout stays on `main`. A session switched
   the shared checkout to `feature/auth` under another session's feet; nothing was lost, once.
 - The PR gate's `idiom` job is `readiness`; the reviewer runs only when the idiom lane's evidence

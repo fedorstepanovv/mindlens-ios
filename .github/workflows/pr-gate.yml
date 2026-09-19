@@ -77,7 +77,26 @@ jobs:
       # A green build says the app compiles, not that it runs. It once compiled cleanly and
       # then died on the first line of the composition root. Two launches — default, and the
       # largest accessibility text size — are the cheapest test that would have caught it.
+      # They are also six minutes of an eighteen-minute job, and only the app target, its
+      # plist and entitlements, the xcconfig, the project, the UI tests, the package manifest
+      # or this workflow can break a launch. A pull request that touches none of them skips it.
+      - name: Decide whether this change can break the launch
+        id: launch
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- \
+            mindlens mindlens.xcodeproj mindlensUITests Config \
+            Packages/MindlensKit/Package.swift .github/workflows/pr-gate.yml)
+          if [ -n "$changed" ]; then
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            printf 'Launch-relevant files changed:\n%s\n' "$changed"
+          else
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "No launch-relevant file changed — skipping the launch."
+          fi
+
       - name: Launch the app
+        if: steps.launch.outputs.needed == 'true'
         run: |
           set -o pipefail
           # A launch that fails on a starved runner is retried; a launch that crashes
