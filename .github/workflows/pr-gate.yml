@@ -127,8 +127,10 @@ jobs:
           # would be attributed to this PR.
           fetch-depth: 0
 
+      # Context for the idiom lane, not evidence: the lanes judge against exemplars from
+      # this repository and need nothing from here. Optional by design.
       - name: Check out the Flutter app as product spec
-        id: spec
+        id: flutter
         continue-on-error: true
         uses: actions/checkout@v4
         with:
@@ -138,9 +140,6 @@ jobs:
           sparse-checkout: lib
           fetch-depth: 1
 
-      # No warning step here: on PR #1 this checkout "succeeded" with an empty tree, so
-      # a step keyed on its outcome never fired. The idiom lane's evidence gate in
-      # `prepare` reads the tree instead, and an empty one is CANNOT_EVALUATE, which blocks.
       - uses: actions/setup-go@v5
         with:
           go-version-file: Tools/swiftgate/go.mod
@@ -155,8 +154,9 @@ jobs:
         run: go build -o "$RUNNER_TEMP/swiftgate" .
 
       # Deterministic rules run first and cost nothing. They also produce the brief the
-      # judges read, and assert each lane's evidence: the `idiom` output is true only
-      # when that lane has something to judge and everything it needs is on disk.
+      # judges read, retrieve the exemplars the idiom lane judges against, and assert each
+      # lane's evidence: a lane's output is true only when it has something to judge,
+      # everything it needs is on disk, and the config lets it score.
       - name: Prepare the review
         id: prep
         env:
@@ -164,15 +164,17 @@ jobs:
           SWIFTGATE_SHA: ${{ github.event.pull_request.head.sha }}
         run: '"$RUNNER_TEMP/swiftgate" prepare --pr ${{ github.event.pull_request.number }}'
 
-      # The judgement half. Running it as Claude Code rather than a direct API call is
-      # what bills it to the Claude subscription behind CLAUDE_CODE_OAUTH_TOKEN.
-      # continue-on-error so a rate limit becomes a reported blocker with a re-run
+      # The judgement half: one Claude Code run per lane, each behind its evidence gate
+      # (prepare's outputs) and each returning its verdict as structured output validated
+      # against the schema prepare published. Running as Claude Code rather than a direct
+      # API call is what bills it to the subscription behind CLAUDE_CODE_OAUTH_TOKEN.
+      # continue-on-error so a rate limit becomes a CANNOT_EVALUATE with a re-run
       # instruction, rather than a bare red job with no explanation on the PR.
       # The token was once stored with a leading space. The action masked it, hid the
       # 401 behind "output hidden for security", and three runs failed with no cause.
       # Compare, never print.
       - name: Check the token is not padded
-        if: steps.prep.outputs.idiom == 'true'
+        if: steps.prep.outputs.verification == 'true' || steps.prep.outputs.idiom == 'true' || steps.prep.outputs.spec == 'true'
         env:
           TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
@@ -181,38 +183,95 @@ jobs:
 
       # Pinned to the commit behind v1 (v1.0.99 at the time), not the moving tag: the
       # action runs with a write token on this repository's pull requests.
+      # Three runs once died at turn 1 with an empty modelUsage and the cause hidden;
+      # show_full_output is the only way to read why the model was never called.
+      # Not "/lane-x": the slash form resolved to nothing on the runner. Pointing at the
+      # file keeps one copy of each rubric without depending on skill dispatch. The action
+      # restores .claude/ from main because a PR head is untrusted, and keeps the PR's own
+      # copy under .claude-pr/. Until a skill is on main, that copy is the only one on the
+      # runner; once it is, the first path wins.
+      - name: Verification lane
+        id: verification
+        if: steps.prep.outputs.verification == 'true'
+        continue-on-error: true
+        uses: anthropics/claude-code-action@4036a180cf690f49529f5d8c79c998855287f590 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          show_full_output: true
+          prompt: |
+            Read .claude/skills/lane-verification/SKILL.md and follow it exactly. If that file
+            does not exist, Glob for .claude-pr/**/lane-verification/SKILL.md, read the match,
+            and follow that one exactly instead.
+          claude_args: |
+            --max-turns 40
+            --model claude-opus-5
+            --allowedTools "Read,Grep,Glob"
+            --json-schema '${{ steps.prep.outputs.schema }}'
+
       - name: Idiom lane
-        id: reviewer
+        id: idiom
         if: steps.prep.outputs.idiom == 'true'
         continue-on-error: true
         uses: anthropics/claude-code-action@4036a180cf690f49529f5d8c79c998855287f590 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # Three runs died at turn 1 with an empty modelUsage and the cause hidden.
-          # The output is the review's own reasoning over a private repo's diff; showing
-          # it costs nothing and is the only way to read why the model was never called.
           show_full_output: true
-          # Not "/idiom-review": the slash form resolved to nothing on the runner and
-          # Claude exited with num_turns 0 and an empty modelUsage. Pointing at the file
-          # keeps one copy of the rubric without depending on skill dispatch.
-          # The action restores .claude/ from main because a PR head is untrusted, and
-          # keeps the PR's own copy under .claude-pr/. Until the skill is on main, that
-          # copy is the only one on the runner; once it is, the first path wins.
           prompt: |
-            Read .claude/skills/idiom-review/SKILL.md and follow it exactly. If that file
-            does not exist, Glob for .claude-pr/**/idiom-review/SKILL.md, read the match,
+            Read .claude/skills/lane-idiom/SKILL.md and follow it exactly. If that file
+            does not exist, Glob for .claude-pr/**/lane-idiom/SKILL.md, read the match,
             and follow that one exactly instead.
           claude_args: |
             --max-turns 40
             --model claude-opus-5
-            --allowedTools "Read,Grep,Glob,Write"
+            --allowedTools "Read,Grep,Glob"
+            --json-schema '${{ steps.prep.outputs.schema }}'
+
+      - name: Spec lane
+        id: spec
+        if: steps.prep.outputs.spec == 'true'
+        continue-on-error: true
+        uses: anthropics/claude-code-action@4036a180cf690f49529f5d8c79c998855287f590 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          show_full_output: true
+          prompt: |
+            Read .claude/skills/lane-spec/SKILL.md and follow it exactly. If that file
+            does not exist, Glob for .claude-pr/**/lane-spec/SKILL.md, read the match,
+            and follow that one exactly instead.
+          claude_args: |
+            --max-turns 40
+            --model claude-opus-5
+            --allowedTools "Read,Grep,Glob"
+            --json-schema '${{ steps.prep.outputs.schema }}'
+
+      # Each lane's structured output becomes the file decide reads. A lane that did not
+      # run leaves no file, and decide scores that as CANNOT_EVALUATE, not as a pass.
+      - name: Collect the verdicts
+        if: always()
+        env:
+          VERIFICATION: ${{ steps.verification.outputs.structured_output }}
+          IDIOM: ${{ steps.idiom.outputs.structured_output }}
+          SPEC: ${{ steps.spec.outputs.structured_output }}
+        run: |
+          for lane in verification idiom spec; do
+            value=$(printenv "$(printf '%s' "$lane" | tr a-z A-Z)" || true)
+            if [ -n "$value" ]; then
+              printf '%s' "$value" > ".swiftgate/run/lane-$lane.json"
+              echo "$lane: verdict collected"
+            else
+              echo "$lane: no structured output"
+            fi
+          done
 
       # The scorer. Lanes are advisory; this is the only step that decides, and it
       # decides on enumerable conditions: a static blocker, a lane that said BLOCK, or a
       # lane that could not evaluate. One sticky comment per lane, each stamped with
       # the head SHA so a stale verdict reads as stale.
       - name: PR readiness
+        if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SWIFTGATE_SHA: ${{ github.event.pull_request.head.sha }}
@@ -220,7 +279,9 @@ jobs:
           "$RUNNER_TEMP/swiftgate" decide \
             --comment \
             --inline \
-            --reviewer-ran ${{ steps.reviewer.outcome == 'success' }} \
+            --ran verification=${{ steps.verification.outcome == 'success' }} \
+            --ran idiom=${{ steps.idiom.outcome == 'success' }} \
+            --ran spec=${{ steps.spec.outcome == 'success' }} \
             --json "$RUNNER_TEMP/findings.json"
 
       - name: Upload findings

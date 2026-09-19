@@ -10,6 +10,16 @@ progress log this project has produced before.
 ## [Unreleased]
 
 ### Added
+- The three judge lanes, each a skill under `.claude/skills/lane-<name>/` with its own rubric and
+  calibration: `lane-verification` (do the tests prove the changed path — fakes throwing what
+  production throws, staggered not raced, captured not typed), `lane-idiom` (is this the Swift we
+  write here, held against exemplars), `lane-spec` (does the diff do what the open feature step
+  agreed). They replace `idiom-review`. Every lane scores.
+- Structured output: each lane returns `{verdict, summary, findings}` validated against the schema
+  `swiftgate prepare` publishes; a verdict outside `PASS · CONCERNS · BLOCK` is `CANNOT_EVALUATE`.
+- Exemplar retrieval: `prepare` picks up to three merged files resembling each changed one, by kind,
+  name and neighbourhood, and writes them into the brief. They are the idiom lane's evidence; the
+  Flutter checkout is optional context.
 - Google Sign-In runs for real: the redirect scheme (`REVERSED_CLIENT_ID`) declared under
   `CFBundleURLTypes` in `mindlens/Info.plist`, and `Tools/check-build-settings.sh` asserts it against the
   bundled `GoogleService-Info.plist` when one is present (`docs/features/auth.md` step 4).

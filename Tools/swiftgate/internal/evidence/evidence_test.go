@@ -30,25 +30,18 @@ func swiftDiff(paths ...string) scan.Diff {
 
 const featureFile = "Packages/MindlensKit/Sources/Features/Dashboard/DashboardModel.swift"
 
-// The bug from PR #1: the checkout step "succeeded" and left an empty tree. The
-// directory existing is not evidence; a Dart file in it is.
-func TestIdiomLaneNeedsDartNotJustADirectory(t *testing.T) {
-	repo := t.TempDir()
-	in := Inputs{RepoDir: repo, Diff: swiftDiff(featureFile), FlutterDir: ".swiftgate/flutter"}
-
-	if err := os.MkdirAll(filepath.Join(repo, ".swiftgate/flutter/lib"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+// The bug from PR #1: the judge ran with nothing to hold the change against and the
+// gate passed. Today the standard is an exemplar; none retrieved is missing evidence.
+func TestIdiomLaneNeedsAnExemplar(t *testing.T) {
+	in := Inputs{RepoDir: t.TempDir(), Diff: swiftDiff(featureFile)}
 	got := Check(Idiom, in)
-	if got.OK() || !strings.Contains(strings.Join(got.Missing, ""), ".swiftgate/flutter/lib") {
-		t.Fatalf("an empty checkout must be missing evidence, got %+v", got)
+	if got.OK() || !strings.Contains(strings.Join(got.Missing, ""), "exemplar") {
+		t.Fatalf("no exemplar must be missing evidence, got %+v", got)
 	}
-
-	touch(t, repo, ".swiftgate/flutter/lib/screens/dashboard_screen.dart")
+	in.Exemplars = 1
 	if got := Check(Idiom, in); !got.OK() {
-		t.Errorf("one Dart file is evidence, got %+v", got)
+		t.Errorf("one exemplar is evidence, got %+v", got)
 	}
-
 	in.Diff.Unified = ""
 	if got := Check(Idiom, in); got.OK() {
 		t.Error("an empty diff is missing evidence too")

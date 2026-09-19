@@ -8,6 +8,7 @@
 package review
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -24,17 +25,49 @@ import (
 // and the findings are build artefacts, not source.
 const RunDir = ".swiftgate/run"
 
-// Paths inside RunDir. The skill hardcodes ContextFile and FindingsFile, so these names
-// are a contract with .claude/skills/idiom-review/SKILL.md — change both together.
+// Paths inside RunDir. The lane skills hardcode ContextFile, so its name is a contract
+// with .claude/skills/lane-*/SKILL.md — change both together.
 const (
-	ContextFile  = "context.md"
-	FindingsFile = "agent-findings.json"
-	StaticFile   = "static-findings.json"
-	StateFile    = "state.json"
+	ContextFile = "context.md"
+	StaticFile  = "static-findings.json"
+	StateFile   = "state.json"
 )
 
-// FlutterDir is where CI checks the Flutter app out, relative to the repository.
+// FlutterDir is where CI checks the Flutter app out, relative to the repository. It is
+// context, not evidence: a lane needs nothing from it to run.
 const FlutterDir = ".swiftgate/flutter"
+
+// Schema is the contract every lane's judge returns, as the JSON Schema the Claude Code
+// action validates its structured output against. Ingest is the other half; the two
+// name the same fields. A verdict outside the enum never reaches Ingest — and if one
+// did, Ingest refuses it.
+const Schema = `{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "summary", "findings"],
+  "properties": {
+    "verdict": {"type": "string", "enum": ["PASS", "CONCERNS", "BLOCK"]},
+    "summary": {"type": "string", "description": "One paragraph. Say it plainly."},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule", "severity", "file", "title", "detail", "fix"],
+        "properties": {
+          "rule": {"type": "string", "description": "stable kebab-case category/name"},
+          "severity": {"type": "string", "enum": ["blocker", "warning", "nit"]},
+          "file": {"type": "string", "description": "repository-relative Swift file"},
+          "line": {"type": "integer", "description": "1-indexed; omit for a whole-file finding"},
+          "title": {"type": "string"},
+          "detail": {"type": "string"},
+          "fix": {"type": "string"},
+          "doc": {"type": "string", "description": "the project document that says so"}
+        }
+      }
+    }
+  }
+}`
 
 // Meta is what the gate knows about the pull request itself.
 type Meta struct {
@@ -42,6 +75,8 @@ type Meta struct {
 	Title  string `json:"title"`
 	Body   string `json:"body"`
 	SHA    string `json:"sha"`
+	// Branch is the head branch. The spec lane reads the feature file it names.
+	Branch string `json:"branch,omitempty"`
 }
 
 // State is what `prepare` hands to `decide`, so the second half does not have to
@@ -59,28 +94,22 @@ type State struct {
 	Evidence map[evidence.Lane]evidence.Result `json:"evidence,omitempty"`
 }
 
-// LaneFindingsFile is where a lane's judge writes back. The idiom lane keeps the file
-// name its skill hardcodes.
-func LaneFindingsFile(lane evidence.Lane) string {
-	if lane == evidence.Idiom {
-		return FindingsFile
-	}
-	return "lane-" + string(lane) + ".json"
-}
+// LaneFindingsFile is where the workflow puts a lane's structured output for decide.
+func LaneFindingsFile(lane evidence.Lane) string { return "lane-" + string(lane) + ".json" }
 
 // Prepare writes the brief the reviewer reads. Returns false when there is nothing to
 // review, so the caller can skip the reviewer entirely rather than spend a run on it.
-func Prepare(dir string, d scan.Diff, meta Meta, static []gate.Finding, flutterAvailable bool) error {
+func Prepare(dir string, d scan.Diff, meta Meta, static []gate.Finding, exemplars []scan.Exemplar, flutterAvailable bool) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, ContextFile),
-		[]byte(brief(d, meta, static, flutterAvailable)), 0o644)
+		[]byte(brief(d, meta, static, exemplars, flutterAvailable)), 0o644)
 }
 
 // brief renders the pull request for a reader who has the repository on disk but has
 // not seen the change.
-func brief(d scan.Diff, meta Meta, static []gate.Finding, flutterAvailable bool) string {
+func brief(d scan.Diff, meta Meta, static []gate.Finding, exemplars []scan.Exemplar, flutterAvailable bool) string {
 	var b strings.Builder
 
 	b.WriteString("# The pull request under review\n\n")
@@ -91,6 +120,13 @@ func brief(d scan.Diff, meta Meta, static []gate.Finding, flutterAvailable bool)
 		fmt.Fprintf(&b, "%s\n\n", body)
 	}
 	fmt.Fprintf(&b, "Merging into `%s`. %d changed file(s).\n\n", shortSHA(d.Base), len(d.Files))
+	if meta.Branch != "" {
+		fmt.Fprintf(&b, "Branch `%s`.", meta.Branch)
+		if name, ok := strings.CutPrefix(meta.Branch, "feature/"); ok && name != "" {
+			fmt.Fprintf(&b, " Its feature file is `docs/features/%s.md`; the spec lane judges against the open step there.", name)
+		}
+		b.WriteString("\n\n")
+	}
 
 	b.WriteString("## Changed files\n\n")
 	for _, f := range d.Files {
@@ -101,14 +137,24 @@ func brief(d scan.Diff, meta Meta, static []gate.Finding, flutterAvailable bool)
 		fmt.Fprintf(&b, "- `%s` (%s, +%d)\n", f.Path, status, len(f.Added))
 	}
 
+	b.WriteString("\n## Exemplars — the Swift we write here\n\n")
+	if len(exemplars) == 0 {
+		b.WriteString("None were found for these files.\n")
+	} else {
+		b.WriteString("Merged files that resemble the changed ones in kind, name and neighbourhood. " +
+			"They are the standard: judge whether the change is shaped like them, not whether it resembles Dart.\n")
+	}
+	for _, e := range exemplars {
+		fmt.Fprintf(&b, "\n### %s\n\n```swift\n%s\n```\n", e.Describe(), strings.TrimRight(e.Body, "\n"))
+	}
+
 	b.WriteString("\n## The Flutter spec\n\n")
 	if flutterAvailable {
 		fmt.Fprintf(&b, "The Flutter app is checked out at `%s`; its Dart sources are under `%s/lib`. "+
-			"Grep it to find the screen a Swift file corresponds to, and judge whether structure was carried over.\n",
-			FlutterDir, FlutterDir)
+			"It is a product spec — what a screen does, how a flow sequences, what the copy says. "+
+			"Open it only to check that, never as a model of how to build it.\n", FlutterDir, FlutterDir)
 	} else {
-		b.WriteString("**Not available in this run.** Judge the Swift on its own merits and on the " +
-			"project's documents. Do not speculate about what the Dart looks like.\n")
+		b.WriteString("Not checked out in this run, and not needed: the exemplars are the standard.\n")
 	}
 
 	b.WriteString("\n## Already reported — do not repeat these\n\n")
@@ -120,7 +166,7 @@ func brief(d scan.Diff, meta Meta, static []gate.Finding, flutterAvailable bool)
 	}
 
 	fmt.Fprintf(&b, "\n## Diff\n\n```diff\n%s\n```\n", d.Unified)
-	fmt.Fprintf(&b, "\nWrite your findings to `%s` and stop.\n", filepath.Join(RunDir, FindingsFile))
+	b.WriteString("\nReturn your verdict as the structured output and stop. Write no file, post no comment.\n")
 
 	return b.String()
 }
@@ -132,10 +178,10 @@ func shortSHA(s string) string {
 	return s
 }
 
-// Report is the shape the reviewer writes back. It mirrors the JSON block documented in
-// the skill; the two must stay in step.
+// Report is the shape a judge returns: Schema, decoded.
 type Report struct {
 	Verdict  string       `json:"verdict"`
+	Summary  string       `json:"summary"`
 	Findings []rawFinding `json:"findings"`
 }
 
@@ -150,21 +196,28 @@ type rawFinding struct {
 	Doc      string `json:"doc"`
 }
 
-// Ingest reads the reviewer's findings.
+// Ingest reads a judge's structured output.
 //
-// A missing file is reported as such rather than treated as a clean review: if the
-// reviewer did not run, the gate has no basis for saying the change is idiomatic.
-func Ingest(path string) (verdict string, findings []gate.Finding, err error) {
+// A missing file is an error, not a clean review: if the judge did not run, the gate has
+// no basis for a verdict. So is a verdict outside the contract — the schema should have
+// stopped it, and a harness that trusted the schema alone would pass a lane on a typo.
+func Ingest(path string) (verdict gate.Verdict, summary string, findings []gate.Finding, err error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", nil, err
+		return "", "", nil, err
+	}
+	if len(bytes.TrimSpace(data)) == 0 {
+		return "", "", nil, fmt.Errorf("%s is empty — the judge produced no structured output", filepath.Base(path))
 	}
 
-	// Claude Code sometimes wraps a JSON file in a fenced block. Accept both rather
-	// than blocking a merge over a formatting habit.
+	// A fenced block is tolerated: the contract is the JSON, not the bytes around it.
 	var report Report
 	if err := json.Unmarshal(unfence(data), &report); err != nil {
-		return "", nil, fmt.Errorf("the reviewer's findings file is not valid JSON: %w", err)
+		return "", "", nil, fmt.Errorf("the judge's output is not valid JSON: %w", err)
+	}
+	verdict, ok := gate.ParseVerdict(report.Verdict)
+	if !ok {
+		return "", "", nil, fmt.Errorf("the judge's verdict %q is not PASS, CONCERNS or BLOCK", report.Verdict)
 	}
 
 	for _, f := range report.Findings {
@@ -186,7 +239,7 @@ func Ingest(path string) (verdict string, findings []gate.Finding, err error) {
 			Source:   gate.FromAgent,
 		})
 	}
-	return strings.TrimSpace(report.Verdict), findings, nil
+	return verdict, strings.TrimSpace(report.Summary), findings, nil
 }
 
 var fence = regexp.MustCompile("(?s)^\\s*```(?:json)?\\s*(.*?)\\s*```\\s*$")
@@ -233,11 +286,11 @@ func Lane(ev evidence.Result, judgeRan bool, findingsPath string) gate.Lane {
 		return cannot("the judge step did not run to completion. Re-run the failed job; if it keeps " +
 			"failing, check the CLAUDE_CODE_OAUTH_TOKEN secret and the subscription's rate limit.")
 	}
-	summary, findings, err := Ingest(findingsPath)
+	verdict, summary, findings, err := Ingest(findingsPath)
 	if err != nil {
-		return cannot("the judge wrote nothing the harness can read: " + err.Error())
+		return cannot("the judge returned nothing the harness can read: " + err.Error())
 	}
-	lane.Verdict, lane.Reason, lane.Findings = gate.VerdictFromFindings(findings), summary, findings
+	lane.Verdict, lane.Reason, lane.Findings = gate.Worse(verdict, gate.VerdictFromFindings(findings)), summary, findings
 	return lane
 }
 
