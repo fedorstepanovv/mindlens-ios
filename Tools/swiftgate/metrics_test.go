@@ -40,7 +40,9 @@ func TestDecideRecordsOneMetricsLinePerLane(t *testing.T) {
 	run("commit", "-q", "-m", "a merged view")
 	run("checkout", "-q", "feature/dashboard")
 
-	if code := prepare(t.Context(), []string{"--repo", repo, "--config", "none.yml", "--base", "main", "--head", "feature/dashboard"}); code != exitPass {
+	// On a runner GITHUB_HEAD_REF names the real pull request's branch, and prepare
+	// reads it before it asks git. The fixture's branch is the one under test.
+	if code := prepare(t.Context(), []string{"--repo", repo, "--config", "none.yml", "--base", "main", "--head", "feature/dashboard", "--branch", "feature/dashboard"}); code != exitPass {
 		t.Fatalf("prepare exited %d", code)
 	}
 	writeLane(t, repo, evidence.Idiom, `{"verdict": "CONCERNS", "summary": "one nit", "findings": [
