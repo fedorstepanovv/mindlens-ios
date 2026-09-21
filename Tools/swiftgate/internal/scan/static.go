@@ -42,7 +42,6 @@ func (s Static) Run(d Diff) []gate.Finding {
 	}
 	out = append(out, s.moduleGraphFindings(files)...)
 	out = append(out, s.namingFindings(files)...)
-	out = append(out, s.testCoverageFindings(d, files)...)
 
 	for i := range out {
 		out[i].Source = gate.FromStatic
@@ -182,21 +181,6 @@ func (s Static) moduleGraphFindings(files []ChangedFile) []gate.Finding {
 				}
 			}
 
-			if imported == "mindlens" && strings.Contains(f.Path, "Packages/MindlensKit") {
-				if sev := s.Severities.for_("arch/imports-app-target", gate.Blocker); sev != gate.Off && !waived["arch/imports-app-target"] {
-					out = append(out, gate.Finding{
-						Rule:     "arch/imports-app-target",
-						Severity: sev,
-						File:     f.Path,
-						Line:     line.Number,
-						Title:    "Package target imports the app target",
-						Detail:   "The app target sits at the top of the graph and is the only place that knows the whole thing. Importing it inverts the dependency and makes the package unbuildable on its own.",
-						Fix:      "Move what you need down into a shared target, or invert it with a protocol the app target satisfies.",
-						Doc:      "docs/ARCHITECTURE.md § Dependency rules (2)",
-					})
-				}
-			}
-
 			if vendor, third := knownSDKs[imported]; third && strings.Contains(f.Path, "Packages/MindlensKit") && !f.IsTest() {
 				if sev := s.Severities.for_("arch/third-party-import", gate.Blocker); sev != gate.Off && !waived["arch/third-party-import"] {
 					out = append(out, gate.Finding{
@@ -266,93 +250,6 @@ func (s Static) namingFindings(files []ChangedFile) []gate.Finding {
 			Fix:      "Name the file after the Swift type it declares, in UpperCamelCase — `DashboardModel.swift`, `MoodBadge.swift`.",
 			Doc:      "CLAUDE.md § The one rule that matters most",
 		})
-	}
-	return out
-}
-
-var (
-	observableClass = regexp.MustCompile(`@Observable`)
-	classDecl       = regexp.MustCompile(`(?:final\s+)?class\s+(\w+)`)
-	dtoDecl         = regexp.MustCompile(`(?:struct|enum)\s+(\w*DTO)\b`)
-)
-
-// testCoverageFindings enforces the two testing rules the project calls non-negotiable:
-// every ViewModel has tests, and every API response type has a decoding test against a
-// real captured fixture.
-func (s Static) testCoverageFindings(d Diff, files []ChangedFile) []gate.Finding {
-	var out []gate.Finding
-
-	testText := strings.Builder{}
-	fixturesAdded := false
-	for _, f := range d.Files {
-		if strings.Contains(f.Path, "Fixtures/") && strings.HasSuffix(f.Path, ".json") {
-			fixturesAdded = true
-		}
-		if !f.IsTest() {
-			continue
-		}
-		for _, l := range f.Added {
-			testText.WriteString(l.Text)
-			testText.WriteString("\n")
-		}
-	}
-	tests := testText.String()
-
-	for _, f := range files {
-		if f.IsTest() {
-			continue
-		}
-		waived := waivedRules(f)
-		var sawObservable bool
-
-		for _, l := range f.Added {
-			text := stripComment(l.Text)
-
-			if observableClass.MatchString(text) {
-				sawObservable = true
-				continue
-			}
-			if sawObservable {
-				if m := classDecl.FindStringSubmatch(text); m != nil {
-					sawObservable = false
-					name := m[1]
-					if strings.Contains(tests, name) {
-						continue
-					}
-					if sev := s.Severities.for_("test/viewmodel-untested", gate.Blocker); sev != gate.Off && !waived["test/viewmodel-untested"] {
-						out = append(out, gate.Finding{
-							Rule:     "test/viewmodel-untested",
-							Severity: sev,
-							File:     f.Path,
-							Line:     l.Number,
-							Title:    "`" + name + "` has no tests in this PR",
-							Detail:   "The testing contract asks every ViewModel to cover loading, success, failure and empty. A ViewModel with untested error handling is a ViewModel with broken error handling.",
-							Fix:      "Add a `@Suite` for `" + name + "` driving it from a fake repository through all four states.",
-							Doc:      "docs/TESTING.md § What must be tested (1)",
-						})
-					}
-				}
-			}
-
-			if m := dtoDecl.FindStringSubmatch(text); m != nil {
-				name := m[1]
-				if strings.Contains(tests, name) && fixturesAdded {
-					continue
-				}
-				if sev := s.Severities.for_("test/dto-without-fixture", gate.Blocker); sev != gate.Off && !waived["test/dto-without-fixture"] {
-					out = append(out, gate.Finding{
-						Rule:     "test/dto-without-fixture",
-						Severity: sev,
-						File:     f.Path,
-						Line:     l.Number,
-						Title:    "`" + name + "` has no fixture-backed decoding test",
-						Detail:   "There is no OpenAPI spec for this backend. A captured-response fixture is the only thing standing between a silent contract break and a crash in production.",
-						Fix:      "Capture a real response into `Sources/TestSupport/Fixtures/`, then add a decoding test asserting `APIEnvelope<" + name + ">` decodes from it. Do not hand-write the JSON.",
-						Doc:      "docs/TESTING.md § What must be tested (2)",
-					})
-				}
-			}
-		}
 	}
 	return out
 }

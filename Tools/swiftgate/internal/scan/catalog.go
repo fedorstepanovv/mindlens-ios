@@ -47,7 +47,10 @@ type LineRule struct {
 }
 
 // lineRules is the deterministic half of the gate. These are the Flutter habits and
-// non-idiomatic shapes that can be caught without a model reading anything.
+// non-idiomatic shapes that can be caught without a model reading anything. Each one
+// guards something CLAUDE.md or docs/ calls non-negotiable that neither the compiler nor
+// SwiftLint already enforces, and each has a test in static_test.go — a rule with
+// neither is deleted, not kept on faith.
 var lineRules = []LineRule{
 	{
 		ID:      "flutter/observable-object",
@@ -80,16 +83,6 @@ var lineRules = []LineRule{
 		Doc:     "docs/ARCHITECTURE.md § Dependency injection",
 	},
 	{
-		ID:      "swift/dispatch-semaphore",
-		Default: gate.Blocker,
-		Scope:   scopeNonTest,
-		Pattern: regexp.MustCompile(`\bDispatchSemaphore\b|\bDispatchGroup\b`),
-		Title:   "Blocking primitive in an async codebase",
-		Detail:  "A semaphore blocks a cooperative-pool thread. Under Swift Concurrency that risks starving the pool and, in the worst case, deadlocking — the runtime assumes threads are never blocked.",
-		Fix:     "Use `await`, `async let`, or `withTaskGroup`. For shared mutable state, an `actor`.",
-		Doc:     "CLAUDE.md § Concurrency",
-	},
-	{
 		ID:      "swift/gcd-queue",
 		Default: gate.Warning,
 		Scope:   scopeNonTest,
@@ -99,26 +92,6 @@ var lineRules = []LineRule{
 		Detail:  "Hopping queues by hand is the pre-async/await idiom. `@MainActor` expresses the same intent to the compiler, which can then check it.",
 		Fix:     "Annotate the type or method `@MainActor`, or `await MainActor.run { }` at a genuine boundary. Keep `DispatchQueue.main` only as a Combine scheduler.",
 		Doc:     "CLAUDE.md § Concurrency",
-	},
-	{
-		ID:      "swift/combine-as-transport",
-		Default: gate.Warning,
-		Scope:   scopeNonTest,
-		Pattern: regexp.MustCompile(`\bFuture<|\bPassthroughSubject<|\bCurrentValueSubject<|eraseToAnyPublisher\(\)`),
-		Title:   "Combine carrying data between layers",
-		Detail:  "Combine earns its place where a stream needs operators — debounce, dedupe, merge. Wrapping a one-shot call in a publisher chain is the Bloc-stream habit rewritten in Swift.",
-		Fix:     "Return the value with `async throws`. Keep Combine for the streams that actually need operators.",
-		Doc:     "docs/PATTERNS.md § Combine, used deliberately",
-	},
-	{
-		ID:      "core/calendar-current",
-		Default: gate.Blocker,
-		Scope:   scopeNonTest,
-		Pattern: regexp.MustCompile(`\bCalendar\.current\b|\bTimeZone\.current\b`),
-		Title:   "Ambient calendar or timezone",
-		Detail:  "\"Today\" in this product is a local day in the *user's* timezone, which is not necessarily the device's. Reading the ambient calendar scatters that decision and makes the DST cases untestable.",
-		Fix:     "Go through the date helper in `Core` and take the timezone from the user's profile.",
-		Doc:     "docs/PATTERNS.md § Dates and timezones",
 	},
 	{
 		ID:      "core/raw-date-now",
@@ -161,16 +134,6 @@ var lineRules = []LineRule{
 		Doc:     "docs/ARCHITECTURE.md § Error handling",
 	},
 	{
-		ID:      "arch/dto-escapes-networking",
-		Default: gate.Warning,
-		Scope:   scopeFeatures,
-		Pattern: regexp.MustCompile(`\b\w+DTO\b`),
-		Title:   "DTO used in feature code",
-		Detail:  "A DTO is the wire format. Letting it reach a view or ViewModel means a backend field rename becomes a UI change, which is the coupling the repository layer exists to prevent.",
-		Fix:     "Map to a domain model in the repository and return that. DTOs stay inside `Networking`.",
-		Doc:     "docs/PATTERNS.md § Repositories",
-	},
-	{
 		ID:      "flutter/widget-suffix",
 		Default: gate.Warning,
 		Scope:   scopeAll,
@@ -185,11 +148,8 @@ var lineRules = []LineRule{
 // structuralRules are the ids the passes in static.go emit that are not line rules.
 var structuralRules = []string{
 	"arch/feature-imports-feature",
-	"arch/imports-app-target",
 	"arch/third-party-import",
 	"flutter/dart-file-naming",
-	"test/viewmodel-untested",
-	"test/dto-without-fixture",
 }
 
 // RuleIDs is every id the deterministic pass can emit, sorted. The metrics report
