@@ -33,10 +33,6 @@ const (
 	StateFile   = "state.json"
 )
 
-// FlutterDir is where CI checks the Flutter app out, relative to the repository. It is
-// context, not evidence: a lane needs nothing from it to run.
-const FlutterDir = ".swiftgate/flutter"
-
 // Schema is the contract every lane's judge returns, as the JSON Schema the Claude Code
 // action validates its structured output against. Ingest is the other half; the two
 // name the same fields. A verdict outside the enum never reaches Ingest — and if one
@@ -108,17 +104,17 @@ const MetricsFile = "metrics.jsonl"
 
 // Prepare writes the brief the reviewer reads. Returns false when there is nothing to
 // review, so the caller can skip the reviewer entirely rather than spend a run on it.
-func Prepare(dir string, d scan.Diff, meta Meta, static []gate.Finding, exemplars []scan.Exemplar, flutterAvailable bool) error {
+func Prepare(dir string, d scan.Diff, meta Meta, static []gate.Finding, exemplars []scan.Exemplar) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, ContextFile),
-		[]byte(brief(d, meta, static, exemplars, flutterAvailable)), 0o644)
+		[]byte(brief(d, meta, static, exemplars)), 0o644)
 }
 
 // brief renders the pull request for a reader who has the repository on disk but has
 // not seen the change.
-func brief(d scan.Diff, meta Meta, static []gate.Finding, exemplars []scan.Exemplar, flutterAvailable bool) string {
+func brief(d scan.Diff, meta Meta, static []gate.Finding, exemplars []scan.Exemplar) string {
 	var b strings.Builder
 
 	b.WriteString("# The pull request under review\n\n")
@@ -155,15 +151,6 @@ func brief(d scan.Diff, meta Meta, static []gate.Finding, exemplars []scan.Exemp
 	}
 	for _, e := range exemplars {
 		fmt.Fprintf(&b, "\n### %s\n\n```swift\n%s\n```\n", e.Describe(), strings.TrimRight(e.Body, "\n"))
-	}
-
-	b.WriteString("\n## The Flutter spec\n\n")
-	if flutterAvailable {
-		fmt.Fprintf(&b, "The Flutter app is checked out at `%s`; its Dart sources are under `%s/lib`. "+
-			"It is a product spec — what a screen does, how a flow sequences, what the copy says. "+
-			"Open it only to check that, never as a model of how to build it.\n", FlutterDir, FlutterDir)
-	} else {
-		b.WriteString("Not checked out in this run, and not needed: the exemplars are the standard.\n")
 	}
 
 	b.WriteString("\n## Already reported — do not repeat these\n\n")
@@ -231,14 +218,18 @@ func Ingest(path string) (verdict gate.Verdict, summary string, findings []gate.
 
 	for _, f := range report.Findings {
 		path := strings.TrimPrefix(strings.TrimSpace(f.File), "./")
-		// The gate reviews Swift. A finding pinned to the Dart spec, or to nothing,
-		// has no line a reviewer can act on.
-		if path == "" || strings.HasPrefix(path, FlutterDir) {
+		// The gate reviews Swift. A finding pinned to nothing has no line a reviewer
+		// can act on.
+		if path == "" {
 			continue
+		}
+		severity, ok := gate.ParseSeverity(f.Severity)
+		if !ok {
+			return "", "", nil, fmt.Errorf("the judge's severity %q is not blocker, warning or nit", f.Severity)
 		}
 		findings = append(findings, gate.Finding{
 			Rule:     NormaliseRule(f.Rule),
-			Severity: gate.ParseSeverity(f.Severity),
+			Severity: severity,
 			File:     path,
 			Line:     f.Line,
 			Title:    strings.TrimSpace(f.Title),

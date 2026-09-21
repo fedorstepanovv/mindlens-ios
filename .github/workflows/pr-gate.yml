@@ -146,19 +146,6 @@ jobs:
           # would be attributed to this PR.
           fetch-depth: 0
 
-      # Context for the idiom lane, not evidence: the lanes judge against exemplars from
-      # this repository and need nothing from here. Optional by design.
-      - name: Check out the Flutter app as product spec
-        id: flutter
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          repository: fedorstepanovv/mindlensapp
-          token: ${{ secrets.FLUTTER_SPEC_TOKEN }}
-          path: .swiftgate/flutter
-          sparse-checkout: lib
-          fetch-depth: 1
-
       - uses: actions/setup-go@v5
         with:
           go-version-file: Tools/swiftgate/go.mod

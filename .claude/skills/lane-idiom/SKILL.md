@@ -26,9 +26,8 @@ change is *shaped like them*: the same depth of decomposition, the same way stat
 the same seams. `CLAUDE.md`, `docs/PATTERNS.md`, `docs/ARCHITECTURE.md` and `docs/DESIGN.md`
 say why the exemplars look the way they do; cite them.
 
-The Flutter app, when it is checked out, is a product spec — what a screen does, what the
-copy says. Open it only to check *that*, and only when you suspect translated structure on a
-screen that has a Dart counterpart. Never speculate about Dart you have not read.
+The Flutter app is not on the runner. Never speculate about Dart you have not read: judge
+the shape of the Swift against the exemplars, not against a Cubit you imagine behind it.
 
 ## What only you can judge
 
