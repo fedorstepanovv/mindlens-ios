@@ -107,6 +107,12 @@ func prepare(ctx context.Context, args []string) int {
 	if err != nil {
 		return fail(err)
 	}
+	// Checked before the no-Swift skip, so a misspelt severity fails the pull request
+	// that introduces it rather than the next one to touch Swift.
+	severities, err := cfg.severities()
+	if err != nil {
+		return fail(err)
+	}
 
 	baseRef := normaliseBase(*repoDir, *base)
 	diff, err := scan.Collect(*repoDir, baseRef, *head, cfg.MaxDiffBytes)
@@ -159,10 +165,6 @@ func prepare(ctx context.Context, args []string) int {
 		state.Meta.Title, state.Meta.Body = meta.Title, meta.Body
 	}
 
-	severities, err := cfg.severities()
-	if err != nil {
-		return fail(err)
-	}
 	static := scan.Static{RepoDir: *repoDir, Severities: severities}.Run(diff)
 	fmt.Fprintf(os.Stderr, "swiftgate: %d Swift file(s) changed, %d deterministic finding(s)\n",
 		len(diff.SwiftFiles()), len(static))
