@@ -97,6 +97,15 @@ type State struct {
 // LaneFindingsFile is where the workflow puts a lane's structured output for decide.
 func LaneFindingsFile(lane evidence.Lane) string { return "lane-" + string(lane) + ".json" }
 
+// ExecutionFile is where the workflow copies the Claude Code action's execution log for
+// a lane, when the step produced one. decide reads cost and duration off it for the
+// metrics record; it is optional, and its absence changes no verdict.
+func ExecutionFile(lane evidence.Lane) string { return "execution-" + string(lane) + ".json" }
+
+// MetricsFile is the JSONL decide appends one record per lane to, for the metrics
+// artifact. Its shape is internal/metrics.LaneRecord.
+const MetricsFile = "metrics.jsonl"
+
 // Prepare writes the brief the reviewer reads. Returns false when there is nothing to
 // review, so the caller can skip the reviewer entirely rather than spend a run on it.
 func Prepare(dir string, d scan.Diff, meta Meta, static []gate.Finding, exemplars []scan.Exemplar, flutterAvailable bool) error {
@@ -272,8 +281,8 @@ func NormaliseRule(s string) string {
 // does the judge's own output stand.
 func Lane(ev evidence.Result, judgeRan bool, findingsPath string) gate.Lane {
 	lane := gate.Lane{Name: string(ev.Lane)}
-	cannot := func(reason string) gate.Lane {
-		lane.Verdict, lane.Reason = gate.CannotEvaluate, reason
+	cannot := func(cause gate.Cause, reason string) gate.Lane {
+		lane.Verdict, lane.Cause, lane.Reason = gate.CannotEvaluate, cause, reason
 		return lane
 	}
 	switch {
@@ -281,14 +290,14 @@ func Lane(ev evidence.Result, judgeRan bool, findingsPath string) gate.Lane {
 		lane.Skipped = ev.Skipped
 		return lane
 	case !ev.OK():
-		return cannot("missing " + strings.Join(ev.Missing, "; "))
+		return cannot(gate.CauseEvidence, "missing "+strings.Join(ev.Missing, "; "))
 	case !judgeRan:
-		return cannot("the judge step did not run to completion. Re-run the failed job; if it keeps " +
+		return cannot(gate.CauseJudge, "the judge step did not run to completion. Re-run the failed job; if it keeps "+
 			"failing, check the CLAUDE_CODE_OAUTH_TOKEN secret and the subscription's rate limit.")
 	}
 	verdict, summary, findings, err := Ingest(findingsPath)
 	if err != nil {
-		return cannot("the judge returned nothing the harness can read: " + err.Error())
+		return cannot(gate.CauseOutput, "the judge returned nothing the harness can read: "+err.Error())
 	}
 	lane.Verdict, lane.Reason, lane.Findings = gate.Worse(verdict, gate.VerdictFromFindings(findings)), summary, findings
 	return lane

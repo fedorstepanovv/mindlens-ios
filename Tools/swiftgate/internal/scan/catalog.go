@@ -2,6 +2,7 @@ package scan
 
 import (
 	"regexp"
+	"sort"
 
 	"github.com/fedorstepanovv/mindlens-ios/Tools/swiftgate/internal/gate"
 )
@@ -179,4 +180,25 @@ var lineRules = []LineRule{
 		Fix:     "A SwiftUI `View` is a view — `MoodBadge`, not `MoodBadgeWidget`. State coordination lives in an `@Observable` model named for the screen.",
 		Doc:     "CLAUDE.md § The one rule that matters most",
 	},
+}
+
+// structuralRules are the ids the passes in static.go emit that are not line rules.
+var structuralRules = []string{
+	"arch/feature-imports-feature",
+	"arch/imports-app-target",
+	"arch/third-party-import",
+	"flutter/dart-file-naming",
+	"test/viewmodel-untested",
+	"test/dto-without-fixture",
+}
+
+// RuleIDs is every id the deterministic pass can emit, sorted. The metrics report
+// lists the ones that have never fired, so a rule that earns nothing can be seen.
+func RuleIDs() []string {
+	out := append([]string(nil), structuralRules...)
+	for _, r := range lineRules {
+		out = append(out, r.ID)
+	}
+	sort.Strings(out)
+	return out
 }

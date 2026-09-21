@@ -268,20 +268,34 @@ jobs:
 
       # Each lane's structured output becomes the file decide reads. A lane that did not
       # run leaves no file, and decide scores that as CANNOT_EVALUATE, not as a pass.
+      # The action's execution file goes beside it: decide reads cost and duration off
+      # it for the metrics record. Nobody here has seen that file's real shape, so the
+      # raw copy is uploaded with the metrics and the first real run settles the guess.
       - name: Collect the verdicts
         if: always()
         env:
           VERIFICATION: ${{ steps.verification.outputs.structured_output }}
           IDIOM: ${{ steps.idiom.outputs.structured_output }}
           SPEC: ${{ steps.spec.outputs.structured_output }}
+          VERIFICATION_EXECUTION: ${{ steps.verification.outputs.execution_file }}
+          IDIOM_EXECUTION: ${{ steps.idiom.outputs.execution_file }}
+          SPEC_EXECUTION: ${{ steps.spec.outputs.execution_file }}
         run: |
           for lane in verification idiom spec; do
-            value=$(printenv "$(printf '%s' "$lane" | tr a-z A-Z)" || true)
+            upper=$(printf '%s' "$lane" | tr a-z A-Z)
+            value=$(printenv "$upper" || true)
             if [ -n "$value" ]; then
               printf '%s' "$value" > ".swiftgate/run/lane-$lane.json"
               echo "$lane: verdict collected"
             else
               echo "$lane: no structured output"
+            fi
+            execution=$(printenv "${upper}_EXECUTION" || true)
+            if [ -n "$execution" ] && [ -f "$execution" ]; then
+              cp "$execution" ".swiftgate/run/execution-$lane.json"
+              echo "$lane: execution file collected ($(wc -c < "$execution") bytes)"
+            else
+              echo "$lane: no execution file"
             fi
           done
 
@@ -312,6 +326,20 @@ jobs:
             ${{ runner.temp }}/findings.json
             .swiftgate/run/
           if-no-files-found: ignore
+
+      # One record per lane per run, kept for as long as the plan allows, under a name
+      # `swiftgate outcomes` and `swiftgate metrics` can find by pull request. The raw
+      # execution files ride along so the cost and duration guess can be checked.
+      - name: Upload metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swiftgate-metrics-pr${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .swiftgate/run/metrics.jsonl
+            .swiftgate/run/execution-*.json
+          if-no-files-found: ignore
+          retention-days: 90
 
   # The rules a session cannot be relied on to remember: branch name, ADR numbers that
   # collide with another open pull request, and size. Seconds on ubuntu; ADR 0013.

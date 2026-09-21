@@ -29,7 +29,7 @@ launch (ADR 0010, `docs/features/auth.md`). Every sign-in is a real production a
 
 Nothing reaches `main` except a PR through the gate — test, build, launch, settings + team + entitlement (Debug
 only), lint, doc links, `Tools/swiftgate` static rules and three judge lanes (verification, idiom held to exemplars from
-this repo, spec) behind evidence gates and a deterministic scorer, branch name, ADR numbers, size (ADR 0006, 0012–0014). `main` is unprotected on this plan; `Tools/githooks` refuse the push.
+this repo, spec) behind evidence gates and a deterministic scorer, branch name, ADR numbers, size (ADR 0006, 0012–0015). Every run records one metrics line per lane and every merge classifies its findings; `swiftgate metrics` sums them (ADR 0016). **No lane has judged a real diff yet**, so the cost fields are a guess until one does. `main` is unprotected on this plan; `Tools/githooks` refuse the push.
 
 ## Next action
 

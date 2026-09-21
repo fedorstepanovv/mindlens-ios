@@ -1,0 +1,83 @@
+# What became of each finding, read at merge time.
+#
+# The gate records what every lane said on every run (`swiftgate decide`, the
+# swiftgate-metrics-* artifacts). This workflow runs once, when the pull request merges,
+# and classifies each finding against the head that merged: changed, resolved, waived,
+# or untouched. untouched ÷ fires is a lane's noise rate; `swiftgate metrics` shows it.
+# Advisory only — nothing here can block anything, the pull request is already merged.
+name: PR outcomes
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  contents: read
+  actions: read   # the metrics artifacts of this pull request's gate runs
+
+jobs:
+  outcomes:
+    name: Classify the findings
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # The base branch, not the pull request's merge ref: that ref is gone once the
+      # pull request closes, and the head that merged is reachable from main's tip.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: Tools/swiftgate/go.mod
+          cache-dependency-path: Tools/swiftgate/go.sum
+
+      - name: Build the gate
+        working-directory: Tools/swiftgate
+        run: go build -o "$RUNNER_TEMP/swiftgate" .
+
+      # Every gate run of this pull request uploaded swiftgate-metrics-pr<N>-<run id>-<attempt>.
+      # Artifacts are listed per repository, so filter by the prefix and unzip each.
+      - name: Download this pull request's metrics
+        id: download
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREFIX: swiftgate-metrics-pr${{ github.event.pull_request.number }}-
+        run: |
+          set -euo pipefail
+          mkdir -p .swiftgate/metrics
+          ids=$(gh api "/repos/${{ github.repository }}/actions/artifacts?per_page=100" --paginate \
+            --jq ".artifacts[] | select(.expired | not) | select(.name | startswith(\"$PREFIX\")) | .id")
+          if [ -z "$ids" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No metrics artifact for this pull request — the gate skipped the judges, or the records expired."
+            exit 0
+          fi
+          for id in $ids; do
+            gh api "/repos/${{ github.repository }}/actions/artifacts/$id/zip" > "$RUNNER_TEMP/$id.zip"
+            unzip -oq "$RUNNER_TEMP/$id.zip" -d ".swiftgate/metrics/$id"
+          done
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "$(echo "$ids" | wc -l | tr -d ' ') artifact(s) downloaded"
+
+      - name: Classify each finding against the merged head
+        if: steps.download.outputs.found == 'true'
+        run: |
+          "$RUNNER_TEMP/swiftgate" outcomes \
+            --pr ${{ github.event.pull_request.number }} \
+            --head ${{ github.event.pull_request.head.sha }} \
+            --override=${{ contains(github.event.pull_request.labels.*.name, 'gate-override') }} \
+            --records .swiftgate/metrics \
+            --out .swiftgate/run/outcomes.jsonl
+
+      - name: Upload outcomes
+        if: steps.download.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: swiftgate-outcomes-pr${{ github.event.pull_request.number }}
+          path: .swiftgate/run/outcomes.jsonl
+          if-no-files-found: ignore
+          retention-days: 90

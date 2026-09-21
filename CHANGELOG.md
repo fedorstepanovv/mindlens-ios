@@ -10,6 +10,14 @@ progress log this project has produced before.
 ## [Unreleased]
 
 ### Added
+- Lane metrics: `swiftgate decide` writes one JSONL record per lane per run — verdict, the cause
+  behind a `CANNOT_EVALUATE`, evidence, findings, and cost, duration and turns when the action's
+  execution file reports them — uploaded as `swiftgate-metrics-pr<N>-…` and kept 90 days.
+  `swiftgate metrics` sums them: verdicts, cost and noise per lane, fires per rule, rules that never
+  fired. `swiftgate outcomes --pr N`, run by `.github/workflows/pr-outcomes.yml` when a pull request
+  merges, classifies each finding `changed`, `resolved`, `waived` or `untouched` against the head
+  that merged; `untouched ÷ classified` is the noise rate (ADR 0016). Verified against fixtures
+  with known answers only — no lane has judged a real diff yet.
 - The three judge lanes, each a skill under `.claude/skills/lane-<name>/` with its own rubric and
   calibration: `lane-verification` (do the tests prove the changed path — fakes throwing what
   production throws, staggered not raced, captured not typed), `lane-idiom` (is this the Swift we
