@@ -1,0 +1,11 @@
+#!/bin/bash
+# Runs after pre-commit, before the editor. One job: when a commit was let through the
+# absorbed-branch check with MINDLENS_ALLOW_ABSORBED=1, write the reason pre-commit required
+# into the message as a trailer, so the override is in git log and not only in the terminal
+# where it was typed. Nothing else is touched.
+set -uo pipefail
+[ "${MINDLENS_ALLOW_ABSORBED:-0}" = 1 ] || exit 0
+[ -n "${MINDLENS_OVERRIDE_REASON:-}" ] || exit 0   # pre-commit refuses this case; belt and braces
+case "${2:-}" in merge|squash) exit 0 ;; esac       # git's own messages, not ours to annotate
+git interpret-trailers --in-place --if-exists replace \
+  --trailer "Override: absorbed branch — $MINDLENS_OVERRIDE_REASON" "$1"
