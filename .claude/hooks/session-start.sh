@@ -8,6 +8,9 @@
 # 3. Print the orientation a session used to be asked to gather by hand: branch, distance from
 #    main, whether this branch is in a pull request or inside someone else's, worktrees, and
 #    branches going stale. Every line here is a question that, unasked, cost this repo a merge.
+# 4. Warn when the main checkout is not on main. It once sat on a merged feature branch, 18
+#    commits behind, and every gate number read from it was stale (CLAUDE.md: one worktree per
+#    branch; the main checkout stays on main).
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
@@ -32,6 +35,14 @@ fi
 branch=$(git branch --show-current)
 main=refs/remotes/origin/main
 count() { git rev-list --count "$@" 2>/dev/null || echo "?"; }
+
+# --- 4. the main checkout ---------------------------------------------------------------------
+# The common dir is <main checkout>/.git wherever this runs, worktree or not.
+maindir=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+mainbranch=$(git -C "$maindir" branch --show-current)
+if [ "$mainbranch" != main ]; then
+  echo "WARNING: the main checkout at $maindir is on '${mainbranch:-(detached)}', not main. Its numbers are stale — git -C $maindir switch main, and work in a worktree."
+fi
 
 echo "Branch: ${branch:-(detached)} — $(count "$main..HEAD") ahead of origin/main, $(count "HEAD..$main") behind."
 if [ -n "$branch" ] && [ "$branch" != main ]; then

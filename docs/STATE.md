@@ -9,7 +9,7 @@ equivalent file in the server repo reached 2,000 lines and stopped being readabl
 **Hard cap: 80 lines**, enforced by `Tools/check-doc-links.py`. If you are adding a line,
 consider which one you are removing.
 
-Last updated: 2026-09-19
+Last updated: 2026-09-21
 
 ---
 
@@ -55,8 +55,8 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 ## Known gaps
 
 - **No captured fixture for `/auth/apple` or `/auth/refresh` 200** — neither is scriptable, so
-  decoding runs against inline bodies labelled as constructed and swiftgate's fixture rule is
-  waived in `AuthEndpoints.swift`. Capture both off a proxied real sign-in (`auth.md` step 5).
+  decoding runs against inline bodies labelled as constructed; a dead `swiftgate:allow` comment in
+  `AuthEndpoints.swift` names a rule that is gone. Capture both off a proxied real sign-in (`auth.md` step 5).
 - **The live refresh has never been observed** (restore only ran inside the 15-minute window), and
   **`Persistence` has no test target** — so the verification lane blocks any PR touching it until `auth.md` step 6.
 - **Sign-out leaves the Firebase user signed in** — the seam has no sign-out. Fine until account deletion.

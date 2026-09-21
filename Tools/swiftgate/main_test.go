@@ -83,16 +83,14 @@ func runDecide(t *testing.T, repo string, args ...string) (int, string) {
 }
 
 // The bug this guards, from PR #1: the judge ran with no standard to hold the change
-// against — the Flutter checkout had produced an empty tree — and reported a clean diff,
-// and the gate reported Passed. The standard is now an exemplar from the base branch;
-// here main holds no Swift at all, so there is none, and the lane must say so and block.
+// against — its checkout of the standard had produced an empty tree — and reported a
+// clean diff, and the gate reported Passed. The standard is now an exemplar from the base
+// branch; here main holds no Swift at all, so there is none, and the lane must say so and
+// block.
 //
 // A lane that could not look must never read as a lane that found nothing.
 func TestLaneWithoutItsEvidenceCannotEvaluateAndBlocks(t *testing.T) {
 	repo := gitRepo(t)
-	if err := os.MkdirAll(filepath.Join(repo, review.FlutterDir), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	if code := prepare(t.Context(), []string{"--repo", repo, "--config", "none.yml", "--base", "main", "--head", "feature/dashboard"}); code != exitPass {
 		t.Fatalf("prepare exited %d", code)
 	}

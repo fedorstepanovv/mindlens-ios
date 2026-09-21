@@ -62,6 +62,20 @@ func TestParseVerdictAcceptsOnlyJudgements(t *testing.T) {
 	}
 }
 
+func TestParseSeverityAcceptsOnlyTheVocabulary(t *testing.T) {
+	for in, want := range map[string]Severity{"blocker": Blocker, " Warning ": Warning, "nit": Nit, "off": Off, "error": Blocker} {
+		if got, ok := ParseSeverity(in); !ok || got != want {
+			t.Errorf("ParseSeverity(%q) = %q, %v; want %q", in, got, ok, want)
+		}
+	}
+	// It used to default these to Warning, which silently downgraded a blocker.
+	for _, in := range []string{"blokcer", "", "high", "blocker!"} {
+		if got, ok := ParseSeverity(in); ok {
+			t.Errorf("ParseSeverity(%q) accepted as %q; a severity outside the vocabulary must be refused", in, got)
+		}
+	}
+}
+
 func TestVerdictFromFindings(t *testing.T) {
 	if got := VerdictFromFindings(nil); got != Pass {
 		t.Errorf("no findings is PASS, got %q", got)

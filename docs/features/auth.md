@@ -58,7 +58,7 @@ account lands in onboarding; a returning one on the dashboard.
    entries: the waiver in `Packages/MindlensKit/Sources/Networking/AuthEndpoints.swift` ·
    `AuthResponseDecodingTests` · `Tools/capture-fixtures.sh` (which cannot script these two).
    files: `Packages/MindlensKit/Sources/TestSupport/Fixtures/`, `Packages/MindlensKit/Tests/NetworkingTests/AuthContractTests.swift`
-   ready: `Tools/swiftgate --static-only` passes with no waiver; the fixtures README lists both as live.
+   ready: no `swiftgate:allow` comment is left in `AuthEndpoints.swift`; the fixtures README lists both as live.
 6. ⬜ `Persistence` test target for the Keychain paths, which have now run for real but never
    under a test.
 

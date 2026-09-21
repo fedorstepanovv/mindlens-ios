@@ -2,8 +2,9 @@
 #
 # The rules themselves live in Tools/swiftgate/internal/scan/catalog.go. This file only
 # retunes them, so changing the gate's temperament is a one-line review rather than a Go
-# change. Valid severities: blocker, warning, nit, off. Rules SwiftLint already enforces as
-# errors (`*Impl` names, force try/cast, TODOs) are not duplicated here.
+# change. Valid severities: blocker, warning, nit, off — anything else fails the run, so a
+# typo cannot quietly downgrade a blocker. Rules SwiftLint already enforces as errors
+# (`*Impl` names, force try/cast, TODOs) are not duplicated here.
 
 # The reviewer's model and turn limit live in .github/workflows/pr-gate.yml on the
 # claude_args line — they belong to the Claude Code step, not to this file.
@@ -27,19 +28,12 @@ severities:
   flutter/dart-file-naming: blocker
   arch/our-singleton: blocker
   arch/feature-imports-feature: blocker
-  arch/imports-app-target: blocker
   arch/third-party-import: blocker
   design/fixed-font-size: blocker
   design/hardcoded-color: blocker
-  core/calendar-current: blocker
   core/raw-date-now: blocker
-  swift/dispatch-semaphore: blocker
-  test/viewmodel-untested: blocker
-  test/dto-without-fixture: blocker
 
   # Real, but the documents leave room for judgement.
   swift/gcd-queue: warning
-  swift/combine-as-transport: warning
   design/print-logging: warning
-  arch/dto-escapes-networking: warning
   flutter/widget-suffix: warning

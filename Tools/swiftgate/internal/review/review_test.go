@@ -63,9 +63,17 @@ func TestIngestToleratesAFencedFile(t *testing.T) {
 	}
 }
 
+func TestIngestRefusesASeverityOutsideTheSchema(t *testing.T) {
+	path := writeFindings(t, `{"verdict":"CONCERNS","summary":"v","findings":[
+      {"rule":"a/b","severity":"critical","file":"Sources/B.swift","title":"t","detail":"d","fix":"f"}
+    ]}`)
+	if _, _, _, err := Ingest(path); err == nil || !strings.Contains(err.Error(), "critical") {
+		t.Fatalf("a severity the schema does not name is a contract violation, got %v", err)
+	}
+}
+
 func TestIngestDropsFindingsWithNoActionableSwiftLine(t *testing.T) {
 	path := writeFindings(t, `{"verdict":"CONCERNS","summary":"v","findings":[
-      {"rule":"a/b","severity":"warning","file":".swiftgate/flutter/lib/x.dart","title":"t","detail":"d","fix":"f"},
       {"rule":"a/c","severity":"warning","file":"","title":"t","detail":"d","fix":"f"},
       {"rule":"a/d","severity":"warning","file":"./Sources/B.swift","title":"t","detail":"d","fix":"f"}
     ]}`)
@@ -184,7 +192,7 @@ func TestPrepareWritesABriefTheSkillCanRead(t *testing.T) {
 	static := []gate.Finding{{Rule: "design/hardcoded-color", File: "A.swift", Line: 3, Title: "colour"}}
 
 	exemplars := []scan.Exemplar{{For: "Packages/MindlensKit/Sources/Features/Dashboard/A.swift", Path: "mindlens/RootView.swift", Body: "struct RootView: View {}"}}
-	if err := Prepare(dir, d, Meta{Title: "Add insights"}, static, exemplars, true); err != nil {
+	if err := Prepare(dir, d, Meta{Title: "Add insights"}, static, exemplars); err != nil {
 		t.Fatal(err)
 	}
 
@@ -200,7 +208,6 @@ func TestPrepareWritesABriefTheSkillCanRead(t *testing.T) {
 		"design/hardcoded-color",  // told not to repeat it
 		"mindlens/RootView.swift", // the exemplar, and its body
 		"struct RootView: View {}",
-		FlutterDir + "/lib", // told where the spec is, and what it is for
 		"structured output", // told how to answer
 		"+let x = 1",
 	} {
@@ -210,13 +217,13 @@ func TestPrepareWritesABriefTheSkillCanRead(t *testing.T) {
 	}
 }
 
-func TestPrepareSaysSoWhenTheSpecIsAbsent(t *testing.T) {
+func TestPrepareSaysSoWhenThereAreNoExemplars(t *testing.T) {
 	dir := t.TempDir()
-	if err := Prepare(dir, scan.Diff{Base: "abc"}, Meta{}, nil, nil, false); err != nil {
+	if err := Prepare(dir, scan.Diff{Base: "abc"}, Meta{}, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	body, _ := os.ReadFile(filepath.Join(dir, ContextFile))
-	if !strings.Contains(string(body), "Not checked out in this run") || !strings.Contains(string(body), "None were found") {
+	if !strings.Contains(string(body), "None were found") {
 		t.Error("the judge must be told what is absent rather than left to guess")
 	}
 }

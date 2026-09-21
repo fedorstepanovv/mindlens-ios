@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -134,37 +135,75 @@ func TestFlagsDartFileNaming(t *testing.T) {
 	}
 }
 
-func TestFlagsUntestedViewModel(t *testing.T) {
-	got := rules(t, file("Packages/MindlensKit/Sources/Features/Insights/InsightsModel.swift", `
-@Observable
-@MainActor
-public final class InsightsModel {
-    public private(set) var isLoading = false
-}
+func TestFlagsServiceLocator(t *testing.T) {
+	got := rules(t, file("Packages/MindlensKit/Sources/Features/Dashboard/DashboardModel.swift", `
+    let repository = DIContainer.resolve(MoodRepository.self)
 `))
-	if _, ok := got["test/viewmodel-untested"]; !ok {
-		t.Fatalf("expected an untested ViewModel to be flagged, got %v", keys(got))
+	f, ok := got["flutter/service-locator"]
+	if !ok {
+		t.Fatalf("expected the service locator to be flagged, got %v", keys(got))
+	}
+	if f.Severity != gate.Blocker {
+		t.Errorf("a service locator is get_it in Swift clothing and must block, got %s", f.Severity)
 	}
 }
 
-func TestAcceptsViewModelWithTestsInSameDiff(t *testing.T) {
-	s := Static{RepoDir: "../../../..", Severities: Severities{}}
-	d := Diff{Files: []ChangedFile{
-		file("Packages/MindlensKit/Sources/Features/Insights/InsightsModel.swift", `
-@Observable
-@MainActor
-public final class InsightsModel {}
-`),
-		file("Packages/MindlensKit/Tests/InsightsTests/InsightsModelTests.swift", `
-@Suite("Insights")
-struct InsightsModelTests {
-    @Test("loads") func loads() async { _ = InsightsModel() }
+func TestFlagsOurSingletonButNotApples(t *testing.T) {
+	ours := rules(t, file("Packages/MindlensKit/Sources/Core/Analytics.swift", `
+public final class Analytics {
+    public static let shared = Analytics()
 }
-`),
-	}}
-	for _, f := range s.Run(d) {
-		if f.Rule == "test/viewmodel-untested" {
-			t.Fatalf("a ViewModel tested in the same PR must not be flagged")
+`))
+	f, ok := ours["arch/our-singleton"]
+	if !ok {
+		t.Fatalf("expected a declared .shared to be flagged, got %v", keys(ours))
+	}
+	if f.Line != 2 {
+		t.Errorf("the finding should sit on the declaration, got line %d", f.Line)
+	}
+
+	apples := rules(t, file("Packages/MindlensKit/Sources/Networking/Transport.swift", `
+    let session = URLSession.shared
+    let center = NotificationCenter.default
+`))
+	if _, ok := apples["arch/our-singleton"]; ok {
+		t.Error("using Apple's .shared is allowed; only declaring one is not")
+	}
+}
+
+func TestFlagsFlutterTypeVocabulary(t *testing.T) {
+	for _, src := range []string{
+		"struct MoodBadgeWidget: View {}",
+		"final class DashboardCubit {}",
+		"class MoodBloc {}",
+		"final class SettingsStateNotifier {}",
+	} {
+		got := rules(t, file("Packages/MindlensKit/Sources/Features/Dashboard/A.swift", "\n"+src+"\n"))
+		if _, ok := got["flutter/widget-suffix"]; !ok {
+			t.Errorf("expected %q to be flagged as Flutter vocabulary, got %v", src, keys(got))
+		}
+	}
+
+	native := rules(t, file("Packages/MindlensKit/Sources/Features/Dashboard/MoodBadge.swift", `
+struct MoodBadge: View {}
+@Observable final class DashboardModel {}
+`))
+	if _, ok := native["flutter/widget-suffix"]; ok {
+		t.Error("a type named the SwiftUI way must not be flagged")
+	}
+}
+
+// Every rule the deterministic pass can emit has a test in this file that names it.
+// Nine rules once shipped with none and were deleted rather than tested; this is the
+// guard that stops the next one from shipping on faith.
+func TestEveryRuleHasATest(t *testing.T) {
+	src, err := os.ReadFile("static_test.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range RuleIDs() {
+		if !strings.Contains(string(src), `"`+id+`"`) {
+			t.Errorf("rule %s has no test naming it: test it or delete it", id)
 		}
 	}
 }

@@ -2,9 +2,13 @@
 #
 # Four jobs. `build` proves the code compiles and the suite is green. `readiness` runs
 # Tools/swiftgate: the deterministic rules, then each judge lane behind its evidence
-# gate, then the scorer that alone decides. `conventions` checks the branch rules.
-# `gate` is the only job branch protection names, so jobs can be added or renamed here
-# without touching the protection rule.
+# gate, then the scorer that alone decides. `conventions` checks the branch rules and
+# the documents' links. `gate` sums the three into the one result to read.
+#
+# Nothing here can stop a merge by itself: branch protection is a 403 on this plan
+# (ADR 0013). What stops it is the human who lands through /pr, and the pre-push hook
+# in Tools/githooks that refuses main. For a team on a plan that has them, a ruleset
+# requiring `gate` is the floor, and `gate` is the one name it would need.
 name: PR gate
 
 on:
@@ -29,8 +33,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # The doc-link check lets append-only history name a path that no longer
-          # exists, provided git remembers it. A shallow clone remembers nothing.
+          # The launch step below diffs against the base branch. A shallow clone has
+          # no base to diff against.
           fetch-depth: 0
 
       - name: Select the newest installed Xcode
@@ -111,11 +115,22 @@ jobs:
       - name: Verify the settings the documents claim
         run: Tools/check-build-settings.sh "id=${{ steps.sim.outputs.udid }}"
 
-      # Not on the runner image, despite being on every developer machine here.
-      # This tracks latest: a SwiftLint release that adds a default rule can turn a
-      # green branch red with no code change. Pin it if that ever happens.
+      # Not on the runner image, despite being on every developer machine here. Pinned
+      # to a release and its checksum: `brew install` tracked latest, and a release
+      # that adds a default rule turns a green branch red with no code change. Bump the
+      # two lines together, and the local install to match.
       - name: Install SwiftLint
-        run: brew install swiftlint
+        env:
+          SWIFTLINT_VERSION: 0.65.1
+          SWIFTLINT_SHA256: c1e429b0599cf1b516f369a2d9ec04eaf0e436f3c12b637df8851fa52ff694d0
+        run: |
+          set -euo pipefail
+          curl -sSL -o "$RUNNER_TEMP/swiftlint.zip" \
+            "https://github.com/realm/SwiftLint/releases/download/$SWIFTLINT_VERSION/portable_swiftlint.zip"
+          echo "$SWIFTLINT_SHA256  $RUNNER_TEMP/swiftlint.zip" | shasum -a 256 -c -
+          unzip -oq "$RUNNER_TEMP/swiftlint.zip" -d "$RUNNER_TEMP/swiftlint"
+          echo "$RUNNER_TEMP/swiftlint" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/swiftlint/swiftlint" version
 
       - name: Lint
         run: |
@@ -125,9 +140,6 @@ jobs:
           # TestSupport passed the gate while failing a local full-tree lint.
           xcrun swift-format lint --recursive --strict \
             Packages/MindlensKit/Sources Packages/MindlensKit/Tests mindlens
-
-      - name: Check documentation links
-        run: python3 Tools/check-doc-links.py
 
   readiness:
     name: Judge lanes and PR readiness
@@ -145,19 +157,6 @@ jobs:
           # merge base to find, and every commit on main since the branch started
           # would be attributed to this PR.
           fetch-depth: 0
-
-      # Context for the idiom lane, not evidence: the lanes judge against exemplars from
-      # this repository and need nothing from here. Optional by design.
-      - name: Check out the Flutter app as product spec
-        id: flutter
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          repository: fedorstepanovv/mindlensapp
-          token: ${{ secrets.FLUTTER_SPEC_TOKEN }}
-          path: .swiftgate/flutter
-          sparse-checkout: lib
-          fetch-depth: 1
 
       - uses: actions/setup-go@v5
         with:
@@ -342,9 +341,12 @@ jobs:
           retention-days: 90
 
   # The rules a session cannot be relied on to remember: branch name, ADR numbers that
-  # collide with another open pull request, and size. Seconds on ubuntu; ADR 0013.
+  # collide with another open pull request, size, and the documents' links. Seconds on
+  # ubuntu; ADR 0013. The doc-link check used to sit at the end of the macOS build, so a
+  # broken reference was reported seventeen minutes late, or not at all when the build
+  # failed first.
   conventions:
-    name: Branch, ADR numbers, size
+    name: Branch, ADR numbers, size, doc links
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -352,11 +354,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # The doc-link check lets append-only history name a path that no longer
+          # exists, provided git remembers it. A shallow clone remembers nothing.
           fetch-depth: 0
       - name: Check
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: Tools/check-pr-conventions.sh ${{ github.event.pull_request.number }}
+      - name: Check documentation links
+        run: python3 Tools/check-doc-links.py
 
   gate:
     name: Gate

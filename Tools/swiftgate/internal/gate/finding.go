@@ -22,19 +22,22 @@ const (
 	Nit Severity = "nit"
 )
 
-// ParseSeverity maps a config string onto a Severity, defaulting to Warning so a
-// typo in the config downgrades a rule rather than silently blocking every PR.
-func ParseSeverity(s string) Severity {
+// ParseSeverity maps a config or judge string onto a Severity, and refuses anything
+// outside the vocabulary. It used to default to Warning, which meant a typo in the
+// config silently downgraded a blocker; a gate that fails open on a misspelling is not
+// a gate, so the caller turns false into an error.
+func ParseSeverity(s string) (Severity, bool) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "blocker", "error", "block":
-		return Blocker
+		return Blocker, true
+	case "warning", "warn":
+		return Warning, true
 	case "nit", "info":
-		return Nit
+		return Nit, true
 	case "off", "ignore", "none":
-		return Off
-	default:
-		return Warning
+		return Off, true
 	}
+	return "", false
 }
 
 // Off disables a rule entirely.

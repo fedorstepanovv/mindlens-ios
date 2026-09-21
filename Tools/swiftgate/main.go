@@ -49,8 +49,6 @@ const usage = `swiftgate — the merge gate for this repository.
 
   swiftgate prepare   Diff the pull request, run the deterministic rules, assert each
                       lane's evidence, and write the brief the judges read.
-  swiftgate evidence  Assert one lane's evidence is on disk: --lane verification|idiom|spec.
-                      Exit non-zero when it is not. Absence is read off a list, never judged.
   swiftgate decide    Score the static findings and every lane's verdict, comment on the
                       pull request, and exit non-zero if anything blocks. Appends one
                       metrics record per lane to .swiftgate/run/metrics.jsonl.
@@ -62,8 +60,6 @@ const usage = `swiftgate — the merge gate for this repository.
                         gh api "/repos/$R/actions/artifacts?per_page=100" --paginate \
                           --jq '.artifacts[] | select(.name | startswith("swiftgate-metrics-") or startswith("swiftgate-outcomes-")) | .id' \
                           | while read id; do gh api "/repos/$R/actions/artifacts/$id/zip" > "$id.zip"; unzip -oq "$id.zip" -d .swiftgate/metrics/"$id"; done
-  swiftgate check     Run the deterministic rules and print the report. No reviewer, no
-                      API key, no network. This is the one to run locally.
 
 Run a subcommand with -h for its flags.`
 
@@ -79,16 +75,12 @@ func main() {
 	switch os.Args[1] {
 	case "prepare":
 		os.Exit(prepare(ctx, os.Args[2:]))
-	case "evidence":
-		os.Exit(evidenceCmd(os.Args[2:]))
 	case "decide":
 		os.Exit(decide(ctx, os.Args[2:]))
 	case "outcomes":
 		os.Exit(outcomes(os.Args[2:]))
 	case "metrics":
 		os.Exit(metricsCmd(os.Args[2:]))
-	case "check":
-		os.Exit(check(os.Args[2:]))
 	case "-h", "--help", "help":
 		fmt.Println(usage)
 		os.Exit(exitPass)
@@ -112,6 +104,12 @@ func prepare(ctx context.Context, args []string) int {
 	_ = fs.Parse(args)
 
 	cfg, err := loadConfig(*repoDir, *configPath)
+	if err != nil {
+		return fail(err)
+	}
+	// Checked before the no-Swift skip, so a misspelt severity fails the pull request
+	// that introduces it rather than the next one to touch Swift.
+	severities, err := cfg.severities()
 	if err != nil {
 		return fail(err)
 	}
@@ -167,62 +165,16 @@ func prepare(ctx context.Context, args []string) int {
 		state.Meta.Title, state.Meta.Body = meta.Title, meta.Body
 	}
 
-	static := scan.Static{RepoDir: *repoDir, Severities: cfg.severities()}.Run(diff)
+	static := scan.Static{RepoDir: *repoDir, Severities: severities}.Run(diff)
 	fmt.Fprintf(os.Stderr, "swiftgate: %d Swift file(s) changed, %d deterministic finding(s)\n",
 		len(diff.SwiftFiles()), len(static))
 
-	flutter := filepath.Join(*repoDir, review.FlutterDir)
-	_, statErr := os.Stat(flutter)
-	if statErr != nil {
-		fmt.Fprintf(os.Stderr, "swiftgate: no Flutter spec at %s — context only, the lanes do not need it\n", review.FlutterDir)
-	}
-
 	fmt.Fprintf(os.Stderr, "swiftgate: %d exemplar(s) retrieved from %s\n", len(exemplars), baseRef)
-	if err := review.Prepare(dir, diff, state.Meta, static, exemplars, statErr == nil); err != nil {
+	if err := review.Prepare(dir, diff, state.Meta, static, exemplars); err != nil {
 		return fail(err)
 	}
 	state.Reviewed = true
 	return finishPrepare(dir, state, static)
-}
-
-// --- evidence ----------------------------------------------------------------
-
-// evidenceCmd asserts one lane's inputs on their own, for a local check or a workflow
-// step that wants a visible red before spending a judge run. It reads the same list
-// prepare does; it does not judge.
-func evidenceCmd(args []string) int {
-	fs := flag.NewFlagSet("evidence", flag.ExitOnError)
-	repoDir := fs.String("repo", ".", "repository to check")
-	configPath := fs.String("config", ".github/swiftgate.yml", "gate configuration")
-	base := fs.String("base", envOr("GITHUB_BASE_REF", "main"), "branch this PR merges into")
-	head := fs.String("head", "HEAD", "commit under review")
-	branch := fs.String("branch", envOr("GITHUB_HEAD_REF", ""), "head branch name")
-	laneName := fs.String("lane", "", "verification, idiom or spec")
-	_ = fs.Parse(args)
-
-	lane, ok := evidence.Parse(*laneName)
-	if !ok {
-		return fail(fmt.Errorf("--lane must be one of %v, got %q", evidence.Lanes, *laneName))
-	}
-	cfg, err := loadConfig(*repoDir, *configPath)
-	if err != nil {
-		return fail(err)
-	}
-	baseRef := normaliseBase(*repoDir, *base)
-	diff, err := scan.Collect(*repoDir, baseRef, *head, cfg.MaxDiffBytes)
-	if err != nil {
-		return fail(err)
-	}
-
-	exemplars := scan.Exemplars(*repoDir, baseRef, diff.SwiftFiles(), exemplarsPerFile, exemplarBytes)
-	ev := evidence.Check(lane, evidenceInputs(*repoDir, diff, branchName(*repoDir, *branch, *head), len(exemplars)))
-	data, _ := json.MarshalIndent(ev, "", "  ")
-	fmt.Println(string(data))
-	fmt.Fprintf(os.Stderr, "swiftgate: %s\n", ev)
-	if ev.Applies() && !ev.OK() {
-		return exitBlocked
-	}
-	return exitPass
 }
 
 // How much of the repository an idiom judge is handed as its standard: up to three
@@ -536,38 +488,6 @@ func metricsCmd(args []string) int {
 		appendFile(path, summary.Markdown())
 	}
 	return exitPass
-}
-
-// --- check -------------------------------------------------------------------
-
-// check is the local path: deterministic rules only, printed to stdout. No run
-// directory, no reviewer, nothing to clean up.
-func check(args []string) int {
-	fs := flag.NewFlagSet("check", flag.ExitOnError)
-	repoDir := fs.String("repo", ".", "repository to check")
-	configPath := fs.String("config", ".github/swiftgate.yml", "gate configuration")
-	base := fs.String("base", envOr("GITHUB_BASE_REF", "main"), "branch to diff against")
-	head := fs.String("head", "HEAD", "commit to check")
-	_ = fs.Parse(args)
-
-	cfg, err := loadConfig(*repoDir, *configPath)
-	if err != nil {
-		return fail(err)
-	}
-	diff, err := scan.Collect(*repoDir, normaliseBase(*repoDir, *base), *head, cfg.MaxDiffBytes)
-	if err != nil {
-		return fail(err)
-	}
-
-	result := &gate.Result{}
-	if len(diff.SwiftFiles()) == 0 {
-		result.Skipped = "no Swift changed."
-	} else {
-		result.Add(scan.Static{RepoDir: *repoDir, Severities: cfg.severities()}.Run(diff)...)
-	}
-	result.Normalise()
-
-	return report(context.Background(), result, scan.Diff{}, reportOptions{label: cfg.OverrideLabel})
 }
 
 // --- shared ------------------------------------------------------------------

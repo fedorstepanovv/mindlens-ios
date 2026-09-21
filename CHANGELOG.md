@@ -123,6 +123,21 @@ progress log this project has produced before.
   plan, so the gate binds by convention; ADR 0006 had assumed otherwise.
 
 ### Changed
+- Gate cleanup, from the 2026-09-21 inventory. `ParseSeverity` refuses a string outside
+  `blocker · warning · nit · off` — it defaulted to `warning`, so a typo in `.github/swiftgate.yml`
+  silently downgraded a blocker; the config loader and `Ingest` now fail on one. The doc-link check
+  runs in the seconds-long `conventions` job instead of at the end of the macOS build. SwiftLint is
+  pinned to a release and its checksum instead of brew's latest. `MINDLENS_ALLOW_ABSORBED=1` needs
+  `MINDLENS_OVERRIDE_REASON`, and a `prepare-commit-msg` hook writes the reason into the commit as an
+  `Override:` trailer. `pre-commit` refreshes the open-PR cache from `gh` itself. `session-start.sh`
+  warns when the main checkout is off `main`. The workflow header says what enforces the gate on this
+  plan: the human and the pre-push hook, not branch protection. `TestEveryRuleHasATest` fails on any
+  static rule `static_test.go` does not name; `flutter/service-locator`, `arch/our-singleton` and
+  `flutter/widget-suffix` got the tests they lacked. `docs/features/auth.md` step 5 no longer names
+  `--static-only`, a flag that never existed.
+- Correction to the `main_test.go` line under *Added* below: since exemplar retrieval, the test
+  gives the idiom lane a base branch with no exemplar and asserts the `CANNOT_EVALUATE` block. It
+  never read the Flutter tree; that step is now removed.
 - Branch conventions (ADR 0015, amending 0013): one branch per initiative, named for what the reader
   gets, kind one of `feature`, `bugfix`, `hotfix`, `docs`. `tooling` and `fix` are gone. The pre-commit
   cap on commits in no pull request rises from 5 to 25 and the size cap from 1,500 to 4,000 lines. A
@@ -167,6 +182,23 @@ progress log this project has produced before.
 - `Tools/check-doc-links.py` skips `worktrees`. A git worktree is a different checkout, so
   `.claude/worktrees/gate/docs` was being reported as a duplicate `docs/` tree — the check
   failed for everyone whenever a gate run was in flight.
+
+### Removed
+- `swiftgate check` and `swiftgate evidence`: no workflow, hook, skill or script invoked either.
+  Static findings come from the `readiness` job in seconds.
+- The Flutter checkout step, `FLUTTER_SPEC_TOKEN`, the brief's "Flutter spec" section and the idiom
+  skill's permission to open the tree. Exemplars from this repository replaced it (ADR 0014); the
+  step had been running on every pull request for nothing.
+- Six static rules with no test: `arch/imports-app-target` and `arch/dto-escapes-networking` (the
+  compiler refuses both — a package cannot import the app module, and every DTO is internal to
+  `Networking`); `swift/dispatch-semaphore`, `swift/combine-as-transport`, `core/calendar-current`
+  (advice in `PATTERNS.md`, none of it an absolute, and the Combine one fired on the uses the document
+  allows); `test/viewmodel-untested` and `test/dto-without-fixture` (substring heuristics — the
+  verification lane owns that question). The waivers those last two forced in
+  `AuthEndpoints.swift` and `DateProvider.swift` are dead comments until the next Swift branch
+  deletes them.
+- `MINDLENS_PUSH_MAIN=1`: `main` moves by pull request, no exceptions; `gh pr merge` never touches
+  the pre-push hook, and a team gets the rule from a ruleset.
 
 ### Fixed
 - `Tools/check-doc-links.py` checked nothing when run inside a worktree and reported success; it
