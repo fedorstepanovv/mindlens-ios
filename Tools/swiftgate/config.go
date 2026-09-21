@@ -53,13 +53,19 @@ func loadConfig(repoDir, path string) (Config, error) {
 	return cfg, nil
 }
 
-// severities converts the config's strings into the engine's type.
-func (c Config) severities() scan.Severities {
+// severities converts the config's strings into the engine's type. An unknown severity
+// is a config error, not a warning: the file is the one place the gate's temperament is
+// set, and a misspelling there must fail the run rather than quietly loosen it.
+func (c Config) severities() (scan.Severities, error) {
 	out := scan.Severities{}
 	for id, s := range c.Severities {
-		out[id] = gate.ParseSeverity(s)
+		sev, ok := gate.ParseSeverity(s)
+		if !ok {
+			return nil, fmt.Errorf("config: severity %q for rule %s is not blocker, warning, nit or off", s, id)
+		}
+		out[id] = sev
 	}
-	return out
+	return out, nil
 }
 
 // lanes converts the config's strings into lane names, dropping any it does not know
