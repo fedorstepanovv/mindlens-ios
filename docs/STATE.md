@@ -44,10 +44,10 @@ PR #1's two reviewer warnings (cancellation at the `APIClient` boundary, `RootVi
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Authentication | 🟡 | `docs/features/auth.md`. Apple and Google sign-in and restore work live. Live fixtures, Keychain tests left. |
+| 1 | Authentication | 🟡 | `docs/features/auth.md`. Apple and Google sign-in and restore work live. Behaviour approved; fixtures, Keychain tests, survey left. |
 | 2 | Dashboard + Quick Log | 🟡 | `DashboardModel` tested against a stub. No views, no real repository. |
 | 3 | Insights + Recaps | ⬜ | Swift Charts; polls for server-side generation. |
-| 4 | Onboarding + Paywall | ⬜ | Survey polling, RevenueCat. The Flutter login screen bundles this survey ahead of sign-in. |
+| 4 | Onboarding + Paywall | ⬜ | Onboarding-status polling, insight reveal, RevenueCat. The pre-sign-in survey is auth's (step 7). |
 
 Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 
