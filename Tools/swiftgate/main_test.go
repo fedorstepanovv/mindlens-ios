@@ -248,6 +248,12 @@ func TestAPullRequestWithNoSwiftIsRecordedAsSkipped(t *testing.T) {
 	if code != exitPass || !strings.Contains(out, "Skipped") {
 		t.Fatalf("a docs-only pull request passes and says it was skipped, exit %d:\n%s", code, out)
 	}
+	// A pull request can change no Swift and still touch AGENTS.md, a workflow or the
+	// gate. "The judges skipped it" is not "read none of it", so the level is still on
+	// the comment.
+	if !strings.Contains(out, "Read: ") {
+		t.Errorf("a skipped review still gets a review level:\n%s", out)
+	}
 	records := recorded(t, repo)
 	for _, lane := range evidence.Lanes {
 		if !strings.Contains(records, `"lane":"`+string(lane)+`"`) {

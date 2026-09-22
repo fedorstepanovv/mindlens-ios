@@ -1,15 +1,15 @@
 #!/bin/bash
 # SessionStart hook: make the branch rules mechanical, then say where this checkout stands.
 #
-# 1. core.hooksPath → Tools/githooks. Git hooks are not cloned, so the first session to open
-#    the repo installs them — and from then on they bind a terminal too, which CLAUDE.md alone
-#    cannot do. Idempotent.
+# 1. Tools/setup.sh — git hooks, gh, and what a build still needs. The script is the install and
+#    a human runs it once per clone (AGENTS.md); calling it here only means the first session to
+#    open the repo does not have to. The guard lives in the script, not in this hook (ADR 0018).
 # 2. Refresh the open-PR cache the pre-commit hook reads, so a commit never waits on the network.
 # 3. Print the orientation a session used to be asked to gather by hand: branch, distance from
 #    main, whether this branch is in a pull request or inside someone else's, worktrees, and
 #    branches going stale. Every line here is a question that, unasked, cost this repo a merge.
 # 4. Warn when the main checkout is not on main. It once sat on a merged feature branch, 18
-#    commits behind, and every gate number read from it was stale (CLAUDE.md: one worktree per
+#    commits behind, and every gate number read from it was stale (AGENTS.md: one worktree per
 #    branch; the main checkout stays on main).
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 0
@@ -18,9 +18,11 @@ git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 common=$(git rev-parse --git-common-dir)
 cache="$common/mindlens-open-prs"
 
-# --- 1. hooks ---------------------------------------------------------------------------------
-if [ "$(git config --get core.hooksPath || true)" != "Tools/githooks" ]; then
-  git config core.hooksPath Tools/githooks && echo "Installed git hooks: core.hooksPath → Tools/githooks (pre-commit, pre-push)."
+# --- 1. setup ---------------------------------------------------------------------------------
+# Quiet when there is nothing to do: its output is worth a session's attention only when
+# something is missing.
+if [ "$(git config --get core.hooksPath || true)" != "Tools/githooks" ] || ! Tools/setup.sh >/dev/null 2>&1; then
+  Tools/setup.sh
 fi
 
 # --- 2. fetch + cache -------------------------------------------------------------------------
@@ -49,7 +51,7 @@ if [ -n "$branch" ] && [ "$branch" != main ]; then
   if [ -f "$cache" ] && pr=$(awk -F'\t' -v b="$branch" '$2==b {print $1; exit}' "$cache") && [ -n "$pr" ]; then
     echo "Pull request: #$pr is this branch."
   else
-    echo "Pull request: none for this branch. The pre-commit cap is ${MINDLENS_MAX_UNREVIEWED_COMMITS:-25} unreviewed commits; /pr opens one."
+    echo "Pull request: none for this branch. The pre-commit cap is ${MINDLENS_MAX_UNREVIEWED_COMMITS:-10} unreviewed commits; /pr opens one."
   fi
   if [ -f "$cache" ] && git rev-parse -q --verify "refs/remotes/origin/$branch" >/dev/null; then
     while IFS=$'\t' read -r num head; do

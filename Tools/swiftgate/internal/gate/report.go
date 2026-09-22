@@ -44,15 +44,17 @@ func (r *Result) Markdown(ctx ReportContext) string {
 	b.WriteString(ReportMarker)
 	fmt.Fprintf(&b, "\n## PR readiness — %s\n\n", ctx.stamp("readiness"))
 
+	// The level comes first: it is the one line the reader acts on, and it says how
+	// much of the rest of this they need. It is printed even when there was nothing
+	// to judge — a pull request can change no Swift and still touch AGENTS.md, a
+	// workflow or the gate, and "the judges skipped it" is not "read none of it".
+	if r.Review.Level != "" {
+		fmt.Fprintf(&b, "%s\n\n", r.Review.Sentence())
+	}
+
 	if r.Skipped != "" {
 		fmt.Fprintf(&b, "Skipped — %s\n", r.Skipped)
 		return b.String()
-	}
-
-	// The level comes first: it is the one line the reader acts on, and it says how
-	// much of the rest of this they need.
-	if r.Review.Level != "" {
-		fmt.Fprintf(&b, "%s\n\n", r.Review.Sentence())
 	}
 
 	d := r.Decision()
@@ -191,6 +193,9 @@ func link(ctx ReportContext, f Finding) string {
 func (r *Result) Summary() string {
 	var b strings.Builder
 	b.WriteString("## PR readiness\n\n")
+	if r.Review.Level != "" {
+		fmt.Fprintf(&b, "Read: **%s** — %s\n\n", r.Review.Level, strings.Join(r.Review.Reasons, "; "))
+	}
 	if r.Skipped != "" {
 		fmt.Fprintf(&b, "Skipped — %s\n", r.Skipped)
 		return b.String()
@@ -201,9 +206,6 @@ func (r *Result) Summary() string {
 		fmt.Fprintf(&b, "**Blocked:** %s\n\n", strings.Join(d.Reasons, " · "))
 	} else {
 		b.WriteString("**Ready.**\n\n")
-	}
-	if r.Review.Level != "" {
-		fmt.Fprintf(&b, "Read: **%s** — %s\n\n", r.Review.Level, strings.Join(r.Review.Reasons, "; "))
 	}
 	for _, l := range r.Lanes {
 		switch {

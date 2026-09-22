@@ -186,6 +186,9 @@ jobs:
       # (prepare's outputs) and each returning its verdict as structured output validated
       # against the schema prepare published. Running as Claude Code rather than a direct
       # API call is what bills it to the subscription behind CLAUDE_CODE_OAUTH_TOKEN.
+      # Each lane's model comes from .github/swiftgate.yml by way of prepare, and is
+      # written into that lane's metrics record: a noise rate is a number about a lane
+      # *and* a model, so changing one here without recording it would pool two judges.
       # continue-on-error so a rate limit becomes a CANNOT_EVALUATE with a re-run
       # instruction, rather than a bare red job with no explanation on the PR.
       # The token was once stored with a leading space. The action masked it, hid the
@@ -223,7 +226,7 @@ jobs:
             and follow that one exactly instead.
           claude_args: |
             --max-turns 40
-            --model claude-opus-5
+            --model ${{ steps.prep.outputs.verification-model }}
             --allowedTools "Read,Grep,Glob"
             --json-schema '${{ steps.prep.outputs.schema }}'
 
@@ -242,7 +245,7 @@ jobs:
             and follow that one exactly instead.
           claude_args: |
             --max-turns 40
-            --model claude-opus-5
+            --model ${{ steps.prep.outputs.idiom-model }}
             --allowedTools "Read,Grep,Glob"
             --json-schema '${{ steps.prep.outputs.schema }}'
 
@@ -261,7 +264,7 @@ jobs:
             and follow that one exactly instead.
           claude_args: |
             --max-turns 40
-            --model claude-opus-5
+            --model ${{ steps.prep.outputs.spec-model }}
             --allowedTools "Read,Grep,Glob"
             --json-schema '${{ steps.prep.outputs.schema }}'
 
@@ -298,10 +301,13 @@ jobs:
             fi
           done
 
-      # The scorer. Lanes are advisory; this is the only step that decides, and it
-      # decides on enumerable conditions: a static blocker, a lane that said BLOCK, or a
-      # lane that could not evaluate. One sticky comment per lane, each stamped with
-      # the head SHA so a stale verdict reads as stale.
+      # The scorer. This is the only step that decides, and it decides on enumerable
+      # conditions: a static blocker, or a BLOCK or CANNOT_EVALUATE from a lane the
+      # config has granted `blocks: true`. Every lane starts advisory and earns that on
+      # its record (ADR 0021), so today a lane's worst verdict is reported, recorded and
+      # not in the way. It also assigns the review level and its `review:<level>` label
+      # (ADR 0017). One sticky comment per lane, each stamped with the head SHA so a
+      # stale verdict reads as stale.
       - name: PR readiness
         if: always()
         env:
