@@ -10,6 +10,21 @@ progress log this project has produced before.
 ## [Unreleased]
 
 ### Added
+- The pipeline, written down. `README.md` is the artifact: what this is, the seven stages and their owners
+  (ADR 0019), the decisions in ten areas held against September 2026 practice with the incident behind each,
+  an evidence section that stays empty until `swiftgate metrics` fills it, what to copy into another repository
+  and what is Claude-specific, and a study of every gate component with its incident and its measurement.
+  `AGENTS.md` is the canonical instruction file for every agent and person; `CLAUDE.md` is `@AGENTS.md` plus
+  the Claude-only lines; `.agents/skills` is a symlink to `.claude/skills` (ADR 0023). A Glossary in
+  `docs/ARCHITECTURE.md` gives session, lane, gate, pipeline, spec, behaviour, source app, transfer, port,
+  review level, risk class and parity checkpoint one meaning each. The feature template gains a human-approved
+  `## Behaviour` section — flows, screens, copy, API calls, edge cases, acceptance criteria — and its cap rises
+  from 100 to 150 lines (ADR 0020). Seven ADRs from the 2026-09-21 plan: review levels with a human on the
+  button (0017), guards in git and CI not the agent (0018), pipeline stages and owners (0019), behaviour as
+  the one intake artifact (0020), lanes advisory until earned with the grant and kill rules (0021), memory
+  structure (0022), skills (0023). `Tools/check-doc-links.py` caps `AGENTS.md` at 200 lines and `CLAUDE.md` at
+  40, and checks `.github/` and `.agents/` paths too. The mechanisms the ADRs decide — `blocks:`, `proof`, the
+  review level, the caps, `setup.sh` — land with `feature/gate-advisory`; this branch is prose and config.
 - Lane metrics: `swiftgate decide` writes one JSONL record per lane per run — verdict, the cause
   behind a `CANNOT_EVALUATE`, evidence, findings, and cost, duration and turns when the action's
   execution file reports them — uploaded as `swiftgate-metrics-pr<N>-…` and kept 90 days.
