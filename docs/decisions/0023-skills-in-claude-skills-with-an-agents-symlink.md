@@ -9,7 +9,8 @@ land a pull request; `study` to learn from what landed; and the three checklists
 `feature-start`, `feature-done` and `orient` — and **lane skills** CI invokes and no session
 should: `lane-verification`, `lane-idiom`, `lane-spec`, each a rubric read by
 `claude-code-action` with `Read, Grep, Glob` and nothing else. The lane skills and `pr` and
-`study` sit in `.claude/skills/`; the three checklists sit in `.claude/commands/`.
+`study` sat in `.claude/skills/`; the three checklists sat in `.claude/commands/`, a slash-command
+format only Claude Code reads.
 
 The skill format is portable (agentskills.io: `SKILL.md` with `name`, `description`, optional
 `allowed-tools`; under 500 lines; loaded in three tiers). The directory is not. Codex, Cursor,
@@ -41,10 +42,10 @@ non-standard and ignored elsewhere.
 
 ## Consequences
 
-- The three checklists in `.claude/commands/` are not covered by this ADR's directory rule: a
-  command is Claude Code's own format, read by nothing else. Moving them into `.claude/skills/`
-  as skills is the change that makes them portable, and it is not this branch's — this branch is
-  documentation. Until it lands, `AGENTS.md` links the checklists by path, which any agent can open.
+- The three checklists moved from `.claude/commands/` to `.claude/skills/<name>/SKILL.md` with
+  this ADR — same Markdown, same frontmatter, same `/name` under Claude Code — so a Codex or
+  Cursor user reaches them through the symlink. `AGENTS.md` links them by path, which any agent
+  can open without knowing the skill format.
 - `README.md` says which skills are process and which are lanes, so a reader does not invoke
   a lane by hand.
 - A Claude-specific frontmatter field is documented as a convenience: it holds under Claude Code

@@ -5,8 +5,8 @@
 Everything above binds every agent and every person. What follows exists only under Claude Code
 and transfers nowhere (ADR 0018) — it is convenience, never the enforcement layer.
 
-- **Slash commands.** The three checklists are invoked as `/feature-start`, `/feature-done` and `/pr`
-  (`.claude/commands/`, `.claude/skills/pr/`). `/orient` is the ~100-line briefing `/feature-start`
+- **Slash commands.** Every skill under `.claude/skills/` is invoked by name: `/feature-start`,
+  `/feature-done` and `/pr` are the three checklists; `/orient` is the ~100-line briefing `/feature-start`
   begins with; `/study` is the read-only walk of what landed. The judge lanes (`lane-verification`,
   `lane-idiom`, `lane-spec`) are skills CI invokes, never a session.
 - **Hooks** in `.claude/settings.json`: `SessionStart` runs `.claude/hooks/session-start.sh`, which

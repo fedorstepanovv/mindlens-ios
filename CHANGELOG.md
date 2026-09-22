@@ -15,7 +15,8 @@ progress log this project has produced before.
   an evidence section that stays empty until `swiftgate metrics` fills it, what to copy into another repository
   and what is Claude-specific, and a study of every gate component with its incident and its measurement.
   `AGENTS.md` is the canonical instruction file for every agent and person; `CLAUDE.md` is `@AGENTS.md` plus
-  the Claude-only lines; `.agents/skills` is a symlink to `.claude/skills` (ADR 0023). A Glossary in
+  the Claude-only lines; `.agents/skills` is a symlink to `.claude/skills`, and the three checklists
+  `feature-start`, `feature-done` and `orient` move from `.claude/commands/` into it as skills (ADR 0023). A Glossary in
   `docs/ARCHITECTURE.md` gives session, lane, gate, pipeline, spec, behaviour, source app, transfer, port,
   review level, risk class and parity checkpoint one meaning each. The feature template gains a human-approved
   `## Behaviour` section — flows, screens, copy, API calls, edge cases, acceptance criteria — and its cap rises

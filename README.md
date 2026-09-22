@@ -31,9 +31,9 @@ words used here mean one thing each: the Glossary in `docs/ARCHITECTURE.md`.
 | Stage | Owner | Produces | Defined by |
 |---|---|---|---|
 | intake | session writes, **human approves** | `## Behaviour` in `docs/features/<name>.md` — extracted from the source app, or authored from a task by interviewing the human | `docs/features/0000-template.md`, ADR 0020 |
-| plan | session + human | `## Steps`, one pull request each, vertical slices | `.claude/commands/feature-start.md`, ADR 0011 |
+| plan | session + human | `## Steps`, one pull request each, vertical slices | `.claude/skills/feature-start/SKILL.md`, ADR 0011 |
 | implement | session | the branch, in its own worktree | `AGENTS.md`, ADR 0015 |
-| verify | session — evidence shown, not asserted | tests, parity checkpoints, the gate's own checks run locally | `.claude/commands/feature-done.md`, `docs/TESTING.md` |
+| verify | session — evidence shown, not asserted | tests, parity checkpoints, the gate's own checks run locally | `.claude/skills/feature-done/SKILL.md`, `docs/TESTING.md` |
 | gate | deterministic checks block; lanes advise | the review level, findings with proof | `.github/workflows/pr-gate.yml`, `Tools/swiftgate`, ADR 0014, 0021 |
 | merge | **human, always** | a merge commit | `.claude/skills/pr/SKILL.md`, ADR 0013, 0017 |
 | measure | `swiftgate decide` / `outcomes` / `metrics` | one JSONL record per lane per run; each finding's outcome at merge; noise per lane | `.github/workflows/pr-outcomes.yml`, ADR 0016 |
@@ -294,8 +294,8 @@ on three features.
   `CLAUDE_CODE_OAUTH_TOKEN` (ADR 0012). Another runner needs to read `.swiftgate/run/context.md`
   and write the lane's verdict as JSON matching the schema `swiftgate prepare` publishes; the
   scorer never sees which runner did it.
-- `.claude/settings.json` hooks and permissions, `.claude/hooks/`, `.claude/commands/`: each is a
-  convenience with a git or CI guard behind it (ADR 0018). Drop them and nothing is unprotected.
+- `.claude/settings.json` hooks and permissions, and `.claude/hooks/`: each is a convenience with a
+  git or CI guard behind it (ADR 0018). Drop them and nothing is unprotected.
 - `CLAUDE.md` is an import plus a few lines; a Codex or Cursor clone reads `AGENTS.md` directly.
 
 **What a ruleset should enforce**, on a plan that has them — this one does not, and the hooks
@@ -377,4 +377,4 @@ cleanup candidate.
 | `.claude/hooks/session-start.sh` | agent | Install the hooks, refresh the open-PR cache, print orientation, warn when the main checkout is off `main` | Stale numbers from a checkout on the wrong branch | none — convenience (ADR 0018) |
 | `.claude/hooks/state-doc-reminder.sh` | agent | Re-prompt when code moved and no state or feature file did | A Swift 6 claim over a Swift 5 build | none — convenience |
 | `.claude/settings.json` deny list | agent | Refuse force pushes, pushes to `main`, reading secrets — for the agent | Duplicates the hooks and `.gitignore` | none — convenience |
-| `.claude/commands/feature-start.md`, `feature-done.md`, `orient.md`; `.claude/skills/study/` | skill | Open a step, close it, orient, learn | ADR 0011, 0023 | none |
+| `.claude/skills/feature-start/`, `feature-done/`, `orient/`, `study/` | skill | Open a step, close it, orient, learn | ADR 0011, 0023 | none |

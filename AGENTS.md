@@ -145,8 +145,8 @@ MCP configuration are conveniences for one agent; they are never the enforcement
 
 ## Starting, finishing, and landing a feature
 
-Three checklists, walked in order: `.claude/commands/feature-start.md` opens a step,
-`.claude/commands/feature-done.md` closes it, `.claude/skills/pr/SKILL.md` lands it.
+Three checklists, walked in order: `.claude/skills/feature-start/SKILL.md` opens a step,
+`.claude/skills/feature-done/SKILL.md` closes it, `.claude/skills/pr/SKILL.md` lands it.
 
 Non-negotiable on every feature:
 1. Tick the step and append a journal line in `docs/features/<name>.md`; `docs/STATE.md` too if the stage moved.
