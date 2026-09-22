@@ -139,9 +139,14 @@ the worktree when its branch lands (the `pr` checklist, land, step 2). Never `gi
 Nothing that protects `main` depends on which agent is running, or on an agent running at all.
 The git hooks in `Tools/githooks` refuse a commit on `main`, a mis-named branch, a branch that
 outgrows its pull request, and any push to `main`; the CI gate (`.github/workflows/pr-gate.yml`)
-is the same for every author. Install the hooks once per clone — `git config core.hooksPath
-Tools/githooks` — and they bind a terminal as much as a session. Agent hooks, permissions and
-MCP configuration are conveniences for one agent; they are never the enforcement layer (ADR 0018).
+is the same for every author. **Run `Tools/setup.sh` once per clone** — it installs the hooks
+and says what else is missing — and from then on they bind a terminal as much as a session.
+Agent hooks, permissions and MCP configuration are conveniences for one agent; they are never
+the enforcement layer (ADR 0018).
+
+The gate's judge lanes are **advisory** and earn blocking on their own record (ADR 0021); the
+deterministic checks block from the start. The gate assigns a review level — *pass*, *brief* or
+*full* — and a human always merges (ADR 0017).
 
 ## Starting, finishing, and landing a feature
 

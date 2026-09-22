@@ -27,6 +27,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -114,10 +115,21 @@ func prepare(ctx context.Context, args []string) int {
 		return fail(err)
 	}
 
+	// Checked here for the same reason as the severities: a lane named wrong is a lane
+	// that never runs, and `blocks: true` under a typo would read as a granted lane.
+	lanes, err := cfg.lanes()
+	if err != nil {
+		return fail(err)
+	}
+
 	baseRef := normaliseBase(*repoDir, *base)
 	diff, err := scan.Collect(*repoDir, baseRef, *head, cfg.MaxDiffBytes)
 	if err != nil {
 		return fail(err)
+	}
+	changed, err := scan.ChangedLines(*repoDir, diff.Base, *head)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "swiftgate: could not count changed lines: %v — the review level will read 0\n", err)
 	}
 
 	dir := filepath.Join(*repoDir, *runDir)
@@ -133,25 +145,29 @@ func prepare(ctx context.Context, args []string) int {
 		Base:     diff.Base,
 		Head:     *head,
 		Files:    diff.Paths(),
+		Changed:  changed,
 		Evidence: evidence.All(evidenceInputs(*repoDir, diff, headBranch, len(exemplars))),
 	}
-	scoring := map[evidence.Lane]bool{}
-	for _, lane := range cfg.lanes() {
-		scoring[lane] = true
+	configured := map[evidence.Lane]bool{}
+	for _, lane := range lanes {
+		configured[lane] = true
 	}
 	for _, lane := range evidence.Lanes {
 		ev := state.Evidence[lane]
 		fmt.Fprintf(os.Stderr, "swiftgate: evidence · %s\n", ev)
 		switch {
 		case !ev.Applies() || ev.OK():
-		case scoring[lane]:
+		case cfg.lane(lane).Blocks:
 			fmt.Printf("::error::%s lane cannot evaluate: missing %s\n", lane, strings.Join(ev.Missing, "; "))
 		default:
-			fmt.Printf("::notice::%s lane is not scoring yet, and could not evaluate this: missing %s\n", lane, strings.Join(ev.Missing, "; "))
+			fmt.Printf("::notice::%s lane is advisory and could not evaluate this: missing %s\n", lane, strings.Join(ev.Missing, "; "))
 		}
 		// A lane's step in the workflow runs on this output: it has something to judge,
-		// its evidence is there, and the config lets it score.
-		setOutput(string(lane), fmt.Sprint(ev.Applies() && ev.OK() && scoring[lane]))
+		// its evidence is there, and the config switched it on. Whether it *blocks* is
+		// a separate question, settled by the scorer — an advisory lane still runs, is
+		// reported and is recorded, or there would be nothing to earn the grant with.
+		setOutput(string(lane), fmt.Sprint(ev.Applies() && ev.OK() && configured[lane]))
+		setOutput(string(lane)+"-model", cfg.lane(lane).Model)
 	}
 	setOutput("schema", compactJSON(review.Schema))
 
@@ -250,6 +266,10 @@ func decide(ctx context.Context, args []string) int {
 	if err != nil {
 		return fail(err)
 	}
+	lanes, err := cfg.lanes()
+	if err != nil {
+		return fail(err)
+	}
 
 	dir := filepath.Join(*repoDir, *runDir)
 	state, err := review.LoadState(filepath.Join(dir, review.StateFile))
@@ -269,30 +289,35 @@ func decide(ctx context.Context, args []string) int {
 		}
 		result.Add(static...)
 
-		// Only the lanes the config switches on can score; the rest were checked and
-		// reported by prepare, so the summary shows what would block once they exist.
-		for _, name := range cfg.lanes() {
+		// Every configured lane is evaluated and reported. Whether its verdict stops
+		// the merge is the lane's own `blocks:` flag, read here and carried onto the
+		// lane so the scorer and the report agree about what was advisory.
+		for _, name := range lanes {
 			ev, known := state.Evidence[name]
 			if !known {
 				ev = evidence.Result{Lane: name, Missing: []string{"an evidence result from `swiftgate prepare`"}}
 			}
 			judgeRan, said := ran[name]
-			lane := review.Lane(ev, judgeRan || !said, filepath.Join(dir, review.LaneFindingsFile(name)))
+			lane := review.Lane(ev, judgeRan || !said, cfg.lane(name).Blocks, filepath.Join(dir, review.LaneFindingsFile(name)))
 			result.Lanes = append(result.Lanes, lane)
-			fmt.Fprintf(os.Stderr, "swiftgate: lane %s → %s (%d finding(s))\n", lane.Name, lane.Verdict, len(lane.Findings))
+			fmt.Fprintf(os.Stderr, "swiftgate: lane %s → %s (%d finding(s), %d unproven, blocks=%t)\n",
+				lane.Name, lane.Verdict, len(lane.Findings), lane.Unproven, lane.Blocks)
 		}
 	}
 
 	result.Normalise()
 	result.Override = overrideReason(ctx, cfg, state.Meta.Number, result)
+	meta := prMetadata(ctx, state.Meta.Number)
+	result.Review = assess(cfg, state, result, meta)
+	fmt.Fprintf(os.Stderr, "swiftgate: review level %s — %s\n", result.Review.Level, strings.Join(result.Review.Reasons, "; "))
 
 	sha := envOr("SWIFTGATE_SHA", state.Meta.SHA)
 	if sha == "" {
 		sha = scan.Rev(*repoDir, state.Head)
 	}
-	if *metricsOut != "" && state.Skipped == "" {
+	if *metricsOut != "" {
 		run := metrics.Run{PR: state.Meta.Number, SHA: sha, Branch: state.Meta.Branch, URL: runURL()}
-		if err := recordMetrics(dir, filepath.Join(dir, *metricsOut), run, result, state); err != nil {
+		if err := recordMetrics(dir, filepath.Join(dir, *metricsOut), run, cfg, result, state); err != nil {
 			fmt.Fprintf(os.Stderr, "swiftgate: metrics not recorded: %v\n", err)
 		}
 	}
@@ -316,13 +341,59 @@ func decide(ctx context.Context, args []string) int {
 	})
 }
 
+// sizeCap is the changed-line cap, read from the same environment variable
+// Tools/check-pr-conventions.sh reads. One number, one place to set it: a second copy
+// in swiftgate.yml would let the cap the conventions job enforces and the cap the
+// review level cites drift apart on the same pull request.
+func sizeCap() int {
+	if v := os.Getenv("MINDLENS_PR_SIZE_CAP"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+		fmt.Fprintf(os.Stderr, "swiftgate: MINDLENS_PR_SIZE_CAP=%q is not a number — using %d\n", v, defaultSizeCap)
+	}
+	return defaultSizeCap
+}
+
+// defaultSizeCap is Ona's published low-risk line, and ADR 0017's. Keep it in step
+// with Tools/check-pr-conventions.sh.
+const defaultSizeCap = 1000
+
+// assess computes how much of this pull request a human reads (ADR 0017). It runs
+// after the findings are normalised, so the level sees what the report shows — in
+// particular, findings dropped for want of a proof cannot force a full read.
+func assess(cfg Config, state review.State, result *gate.Result, meta *ghpr.PullRequest) gate.Review {
+	return gate.Assess(gate.LevelInputs{
+		Files:               state.Files,
+		Changed:             state.Changed,
+		RiskPaths:           cfg.RiskPaths,
+		PassMaxChangedLines: cfg.Pass.MaxChangedLines,
+		SizeCap:             sizeCap(),
+		SizeOverridden:      meta != nil && meta.HasLabel("size-override"),
+		Findings:            result.LaneFindings(),
+	})
+}
+
 // recordMetrics writes what this run produced, one line per lane and one for the
 // static pass, for the metrics artifact. It runs before the decision and never
 // changes it. Cost and duration come off each lane's execution file when the workflow
 // copied one in; a file the reader cannot make sense of is logged, and the record
 // says "not reported" rather than a number.
-func recordMetrics(dir, path string, run metrics.Run, result *gate.Result, state review.State) error {
+func recordMetrics(dir, path string, run metrics.Run, cfg Config, result *gate.Result, state review.State) error {
 	_ = os.Remove(path) // a re-run of decide in the same directory starts over
+
+	// A pull request with no Swift in it is still a run of the gate, and one the
+	// records used to be silent about. Without these the numbers answer "of the runs
+	// we measured, how did each lane do" and never "how often was there anything to
+	// measure" — and coverage is half of whether a lane earns its keep.
+	if result.Skipped != "" {
+		records := make([]any, 0, len(evidence.Lanes))
+		for _, r := range metrics.Skipped(run, result.Skipped) {
+			records = append(records, r)
+		}
+		return writeMetrics(path, records)
+	}
+
 	records := []any{metrics.FromStatic(run, result.Findings)}
 	for _, lane := range result.Lanes {
 		name, _ := evidence.Parse(lane.Name)
@@ -332,8 +403,12 @@ func recordMetrics(dir, path string, run metrics.Run, result *gate.Result, state
 				fmt.Fprintf(os.Stderr, "swiftgate: %s execution file: %v — cost and duration not reported\n", lane.Name, err)
 			}
 		}
-		records = append(records, metrics.FromLane(run, lane, state.Evidence[name], exec))
+		records = append(records, metrics.FromLane(run, lane, cfg.lane(name).Model, state.Evidence[name], exec))
 	}
+	return writeMetrics(path, records)
+}
+
+func writeMetrics(path string, records []any) error {
 	if err := metrics.Append(path, records...); err != nil {
 		return err
 	}
@@ -492,6 +567,13 @@ func metricsCmd(args []string) int {
 
 // --- shared ------------------------------------------------------------------
 
+// reviewLabels is the family the gate sets exactly one of.
+var reviewLabels = []string{
+	gate.Review{Level: gate.LevelPass}.Label(),
+	gate.Review{Level: gate.LevelBrief}.Label(),
+	gate.Review{Level: gate.LevelFull}.Label(),
+}
+
 type reportOptions struct {
 	pr      int
 	sha     string
@@ -538,6 +620,15 @@ func report(ctx context.Context, result *gate.Result, diff scan.Diff, opt report
 		if opt.inline && len(diff.Files) > 0 {
 			if err := client.PostInline(ctx, opt.pr, opt.sha, diff, result.All()); err != nil {
 				fmt.Fprintf(os.Stderr, "swiftgate: inline comments skipped: %v\n", err)
+			}
+		}
+		// The label is the level at a glance, on the pull request list. The comment is
+		// where the reasons are; a failure to label never fails the run.
+		if result.Review.Level != "" {
+			if err := client.SetExclusiveLabel(ctx, opt.pr, reviewLabels, result.Review.Label()); err != nil {
+				fmt.Fprintf(os.Stderr, "swiftgate: could not set %s: %v\n", result.Review.Label(), err)
+			} else {
+				fmt.Fprintf(os.Stderr, "swiftgate: %s\n", result.Review.Label())
 			}
 		}
 	} else {

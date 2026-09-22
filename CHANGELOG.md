@@ -10,6 +10,55 @@ progress log this project has produced before.
 ## [Unreleased]
 
 ### Added
+- The gate's judge lanes are **advisory**, and earn blocking on their own record. `.github/swiftgate.yml`'s
+  `lanes:` becomes a map of lane → `{blocks, model}`: every listed lane runs, is reported on the pull request
+  and writes a metrics record, and only one with `blocks: true` can stop a merge. All three start false —
+  none had judged a real diff, so the gate was blocking on the word of judges whose noise rate nobody had
+  measured. The grant and the kill rules sit in the file beside the flag: ≥10 judged pull requests with noise
+  ≤30% and one finding classified `changed` earns it; ≥10 judged runs with noise >50% and none `changed`
+  deletes the lane, with an ADR (ADR 0021). A lane name the gate does not have is now a config error, on the
+  same argument as a misspelt severity — `blocks: true` under a typo reads as a granted lane and is a lane
+  that never runs.
+- **A `proof` per finding**, required by the schema and again by `Ingest`: the input or state and the line
+  where it fails, or the exemplar contradicted. A finding without one is dropped before anyone reads it and
+  counted in the lane's record, so a judge writing things it cannot support is visible rather than merely
+  noisy. The three lane skills each define what a proof is for their question. A judge's verdict still stands
+  when every finding behind it was dropped — "BLOCK, 0 findings, 2 unproven" is the truth about that judge.
+- **Review levels** (ADR 0017). `swiftgate decide` computes *pass*, *brief* or *full* from the changed paths,
+  the changed-line count, the lane findings and the size cap; posts it as the first line of the readiness
+  comment with every reason; and sets a `review:<level>` label. `risk_paths:` and `pass:` live in
+  `.github/swiftgate.yml`; the size cap is read from `MINDLENS_PR_SIZE_CAP`, the variable
+  `Tools/check-pr-conventions.sh` already used, so one number serves both. A pull request that changes no
+  Swift still gets a level — it can still touch `AGENTS.md`, a workflow or the gate.
+- **A model per lane**, named in `.github/swiftgate.yml`, published by `prepare`, passed to the lane's step
+  and written into its metrics record: verification and spec on Opus, idiom on the cheaper model. A noise rate
+  is a number about a lane *and* a model, and the workflow had one model hard-coded in three places.
+- **`Tools/setup.sh`** — the once-per-clone install a human runs: `core.hooksPath`, the hooks' executable bit,
+  `gh` and its authentication, Go, and whether the gitignored Firebase plist is present. `AGENTS.md` says to
+  run it; the session-start hook calls it and stays quiet when there is nothing to do. The guard is the
+  script, which binds a terminal; the hook binds one agent (ADR 0018).
+
+### Changed
+- The **idiom lane runs only where structural translation happens**: a diff that adds a type conforming to
+  `View`, an `@Observable` type, or a whole new file under a feature target. Every other diff records a skip
+  with its reason, so `swiftgate metrics` can report how often the lane was eligible at all. It is the lane
+  expected to fail the grant rule, and this is what bounds its cost until the measurement is in.
+- **A run with no Swift is recorded**, one skipped record per lane. The records used to be silent about it,
+  which meant they could say how a lane did on the runs it judged and never how often there was anything to
+  judge — and coverage is half of whether a lane earns its keep.
+- The caps drop to ADR 0017's numbers: **1,000 changed lines** per pull request (was 4,000) and **10 commits**
+  no pull request can see (was 25). `swiftgate` counts changed lines with the same exclusions the conventions
+  check uses, so the cap enforced and the number the level cites cannot drift apart.
+- `/pr status` leads with the review level and separates a blocking red from an advisory lane's verdict; its
+  old wording implied a `CANNOT_EVALUATE` was what made the gate red, which is no longer true and would send
+  the reader to fix the wrong thing. `/pr land` says Fedir reads to the level the gate assigned.
+- `AGENTS.md` where `CLAUDE.md` was, in the files this branch touched anyway: the two static rules' `Doc:`
+  strings, the SwiftLint `*Impl` message, the pre-commit header, and the `feature-start`, `orient` and
+  `lane-idiom` skills. The import gets a Claude reader there either way; a Codex or Cursor reader landed on
+  four lines about Claude Code.
+- `docs/LESSONS.md`: the ADR-collision entry is retired — `Tools/check-pr-conventions.sh` checks decision
+  numbers against `main` and every open pull request's head on every run, so the guard is the memory now.
+
 - The pipeline, written down. `README.md` is the artifact: what this is, the seven stages and their owners
   (ADR 0019), the decisions in ten areas held against September 2026 practice with the incident behind each,
   an evidence section that stays empty until `swiftgate metrics` fills it, what to copy into another repository

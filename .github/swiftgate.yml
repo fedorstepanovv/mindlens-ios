@@ -6,8 +6,9 @@
 # typo cannot quietly downgrade a blocker. Rules SwiftLint already enforces as errors
 # (`*Impl` names, force try/cast, TODOs) are not duplicated here.
 
-# The reviewer's model and turn limit live in .github/workflows/pr-gate.yml on the
-# claude_args line — they belong to the Claude Code step, not to this file.
+# Each lane's model lives below, under `lanes:`, because it belongs to the lane's
+# record as much as to the step that runs it. The turn limit stays in
+# .github/workflows/pr-gate.yml on the claude_args line.
 max_diff_bytes: 180000
 
 # Applying this label to a pull request lets a human merge past a blocker — but only
@@ -15,14 +16,76 @@ max_diff_bytes: 180000
 # The reason is copied into the gate's comment, so the decision stays on the record.
 override_label: gate-override
 
-# The judge lanes that score. Every lane's evidence is asserted and reported on every
-# pull request; only a lane listed here can block. Each has a skill under
-# .claude/skills/lane-<name>/. A lane that could not evaluate — no evidence, no run,
-# output not the contract — is CANNOT_EVALUATE, and that blocks.
-lanes: [verification, idiom, spec]
+# The judge lanes. Each has a skill under .claude/skills/lane-<name>/. A lane listed
+# here runs, is reported on the pull request, and writes a metrics record; whether its
+# verdict can stop a merge is `blocks:`, and a lane the gate does not have is a config
+# error rather than a lane that silently never runs.
+#
+# Every lane starts `blocks: false` (ADR 0021). A BLOCK or CANNOT_EVALUATE from an
+# advisory lane is reported and recorded and stops nothing — CANNOT_EVALUATE stays
+# visible either way, because a judge that could not look is never scored PASS.
+#
+#   Grant  `blocks: true` is set by a reviewed pull request citing `swiftgate metrics`:
+#          ≥10 judged pull requests, noise (untouched ÷ classified) ≤30%, and at least
+#          one finding classified `changed`. Revoked the same way. The flip is the
+#          decision; nothing automates it.
+#   Kill   After ≥10 judged runs with noise >50% and zero findings classified
+#          `changed`, the lane is deleted by a reviewed pull request citing the
+#          numbers, with an ADR. Written down before any record existed, so a cut is a
+#          decision made on evidence we said we would use.
+#
+# `model:` is the judge the lane's step runs, published by `swiftgate prepare` and
+# written into every metrics record — a noise rate is a number about a lane *and* a
+# model. The advisory lanes need not all be Opus; idiom is the one expected to fail
+# the grant, so it runs on the cheaper model and behind a narrow trigger (it applies
+# only when the diff adds a View, an @Observable type, or a new feature-target file).
+lanes:
+  verification:
+    blocks: false
+    model: claude-opus-5
+  idiom:
+    blocks: false
+    model: claude-sonnet-5
+  spec:
+    blocks: false
+    model: claude-opus-5
+
+# How much of a pull request a human reads before merging it (ADR 0017). A human always
+# merges; this only says what is enough to read first. The deterministic layer comes
+# first regardless — build, tests, lint, doc links and the static blockers must be
+# green before a level means anything.
+#
+#   pass   nothing, merge on the gate's approval
+#   brief  the gate's comment and the pull request body
+#   full   the diff
+#
+# Touching any of these forces full. A pattern with no slash matches a file's name at
+# any depth, so the token code stays in the class wherever it moves to; `**` matches
+# any number of path segments.
+risk_paths:
+  - Packages/*/Sources/Networking/**
+  - Packages/*/Sources/Persistence/**
+  - Config/**
+  - .github/**
+  - Tools/**
+  - .claude/**
+  - AGENTS.md
+  - CLAUDE.md
+  - Auth*
+  - Keychain*
+  - TokenRefresher*
+  - "*.entitlements"
+  - Info.plist
+
+# pass also requires no new ADR, dependency or entitlement — those are what this
+# repository is rather than knobs, and live in internal/gate. Over the size cap
+# (MINDLENS_PR_SIZE_CAP, shared with Tools/check-pr-conventions.sh) on a size-override
+# is full, as is any lane finding at warning or above with a proof behind it.
+pass:
+  max_changed_lines: 200
 
 severities:
-  # Absolute in CLAUDE.md and docs/ — these stop a merge.
+  # Absolute in AGENTS.md and docs/ — these stop a merge.
   flutter/observable-object: blocker
   flutter/service-locator: blocker
   flutter/dart-file-naming: blocker

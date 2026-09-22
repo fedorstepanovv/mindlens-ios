@@ -17,28 +17,28 @@ settings (ADR 0009). **79 tests across 19 suites pass** in ~2s. SwiftLint, swift
 **The app has UI, verified by running it** — the scene root switches on `SessionState`; signed-out
 is the sign-in screen, checked light/dark at default and the largest text size. The rest is stubs.
 
-**Sign in with Apple and Google work against production** — provider → Firebase → `POST /auth/apple` →
-signed-in stub, and a relaunch restores the session from the Keychain. It needs a `GoogleService-Info.plist`
-from the production Firebase project beside `mindlens/Info.plist`; the file is gitignored, so CI
-and a fresh clone get `UnavailableIdentityProvider` instead, and a Release build without it fails at
-launch (ADR 0010, `docs/features/auth.md`). Every sign-in is a real production account.
+**Sign in with Apple and Google work against production** — provider → Firebase → `POST /auth/apple` → signed-in stub,
+and a relaunch restores the session from the Keychain. It needs a `GoogleService-Info.plist` from the production
+Firebase project beside `mindlens/Info.plist`; the file is gitignored, so CI and a fresh clone get
+`UnavailableIdentityProvider` instead, and a Release build without it fails at launch (ADR 0010,
+`docs/features/auth.md`). Every sign-in is a real production account.
 
-Nothing reaches `main` except a PR through the gate — test, build, launch, settings + team + entitlement (Debug
-only), lint, doc links, `Tools/swiftgate` static rules and three judge lanes (verification, idiom held to exemplars from
-this repo, spec) behind evidence gates and a deterministic scorer, branch name, ADR numbers, size (ADR 0006, 0012–0015). Every run records one metrics line per lane and every merge classifies its findings; `swiftgate metrics` sums them (ADR 0016). **No lane has judged a real diff yet**, so the cost fields are a guess until one does. **The lanes still block** — a `BLOCK` or `CANNOT_EVALUATE` fails the gate — until `feature/gate-advisory` lands ADR 0021's `blocks:` flag, the proof field, the review level (ADR 0017) and the 1,000-line / 10-commit caps; the caps sit at 4,000 / 25 until then. `main` is unprotected on this plan; `Tools/githooks` refuse the push.
+Nothing reaches `main` except a PR through the gate — test, build, launch, settings + team + entitlement (Debug only), lint, doc links, `Tools/swiftgate` static rules, branch name, ADR numbers, size (ADR 0006, 0012–0015). **Only that deterministic half blocks.** The three lanes (verification, idiom against this repo's exemplars, spec) run behind their evidence gates, report and record, and all three are `blocks: false`: a `BLOCK` or `CANNOT_EVALUATE` stops nothing until a reviewed PR cites the grant rule — ≥10 judged PRs, noise ≤30%, ≥1 finding `changed` — with the kill rule written down beside it (ADR 0021). A finding without a `proof` is dropped and counted. The gate assigns *pass*, *brief* or *full* from the diff and labels the PR; a human always merges (ADR 0017). Caps: 1,000 changed lines, 10 unreviewed commits.
+`swiftgate metrics` sums the records (ADR 0016) — **no lane has judged a real diff yet**, so every cost and noise field
+is empty. `main` is unprotected on this plan; `Tools/githooks` refuse the push and `Tools/setup.sh` installs them.
 
-The pipeline is written down: `README.md` is the artifact — stages and owners (ADR 0019), the decisions by area against
-September 2026 practice (ADR 0017–0023), an empty evidence section — and `AGENTS.md` is the canonical instruction file,
-`CLAUDE.md` its import. The feature template has a human-approved `## Behaviour` section (ADR 0020); `docs/features/auth.md` gets its own when step 5 opens.
+The pipeline is written down and built: `README.md` is the artifact — stages and owners (ADR 0019), the decisions by
+area against September 2026 practice (ADR 0017–0023), an evidence section that stays empty until the records fill it —
+and `AGENTS.md` is canonical, `CLAUDE.md` its import. Every mechanism those ADRs decided now exists in the gate. The
+feature template has a human-approved `## Behaviour` section (ADR 0020); `docs/features/auth.md` gets its own at step 5.
 
 ## Next action
 
-`feature/gate-advisory` — the gate branch: lanes advisory with the grant and kill rules (ADR 0021), `proof` required
-per finding, the review level and risk class (ADR 0017), the caps, a `setup.sh` in `Tools/`, the idiom trigger, a model
-per lane, skipped runs recorded. Then the load: `feature/auth` for `docs/features/auth.md` step 5 — write its
-`## Behaviour`, capture the `/auth/apple` and `/auth/refresh` 200s off a proxied real sign-in, point the decoding tests
-at them, drop the dead waivers — is the first product PR the lanes judge. PR #1's two reviewer warnings (cancellation at
-the `APIClient` boundary, `RootView`'s placeholder copy) wait for a `bugfix/` branch after it. Blocked on nothing.
+The load, starting with `feature/auth` — `docs/features/auth.md` step 5: write its `## Behaviour`, capture the
+`/auth/apple` and `/auth/refresh` 200s off a proxied real sign-in, point the decoding tests at them, drop the dead
+waivers. It is the first PR that changes Swift, so the first the lanes judge and the first with records to measure.
+PR #1's two reviewer warnings (cancellation at the `APIClient` boundary, `RootView`'s placeholder copy) wait for a
+`bugfix/` branch after it. Blocked on nothing.
 
 ## Stages
 
@@ -51,20 +51,18 @@ the `APIClient` boundary, `RootView`'s placeholder copy) wait for a `bugfix/` br
 
 Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 
-**The pipeline is done when** (`README.md` §4): twenty product PRs through the gate; every lane with a measured noise
-rate; one lane granted, refused or killed on data; one defect the gate caught that a full read would have missed,
-documented; behaviour-first intake on three features. After `feature/gate-advisory`, the gate changes only when the load says.
+**The pipeline is done when** (`README.md` §4): twenty product PRs through the gate; every lane with a measured noise rate; one lane granted, refused or killed on data; one defect the gate caught that a full read would have missed, documented; behaviour-first intake on three features. The gate now changes only when the load says it should.
 
 ## Known gaps
 
 - **No captured fixture for `/auth/apple` or `/auth/refresh` 200** — neither is scriptable, so decoding runs against
-  inline bodies labelled as constructed; dead `swiftgate:allow` comments in `AuthEndpoints.swift` and `DateProvider.swift`
-  name rules that are gone. Capture both off a proxied real sign-in (`auth.md` step 5).
-- **The live refresh has never been observed** (restore only ran inside the 15-minute window), and
-  **`Persistence` has no test target** — so the verification lane blocks any PR touching it until `auth.md` step 6.
+  inline bodies labelled as constructed, and dead `swiftgate:allow` comments in `AuthEndpoints.swift` and
+  `DateProvider.swift` name rules that are gone. Capture both off a proxied sign-in (`auth.md` step 5).
+- **The live refresh has never been observed** (restore only ran inside the 15-minute window), and **`Persistence`
+  has no test target** — the verification lane reports that on any PR touching it. `auth.md` step 6.
 - **Sign-out leaves the Firebase user signed in** — the seam has no sign-out. Fine until account deletion.
-- **A transient restore failure parks in `restoring` with a retry**, correct only because no user row is cached;
-  **the local store is not observable** either. SwiftData, the outbox, ADR 0003's gate: Stage 2.
+- **A transient restore failure parks in `restoring` with a retry** — correct only because no user row is cached — and
+  **the local store is not observable**. SwiftData, the outbox, ADR 0003's gate: Stage 2.
 - No `PrivacyInfo.xcprivacy`, usage descriptions, or a HealthKit data boundary (Guideline 5.1.3) — all before submission.
 - No brand colour or app icon — `AccentColor` is empty, so the app tints system blue. Analytics records events only.
 

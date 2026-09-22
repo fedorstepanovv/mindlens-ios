@@ -6,16 +6,19 @@
 #   adr      a decision number this PR adds must not exist, under another name, on the base
 #            branch or on the head of any other open pull request. 0006 collided between
 #            sessions; 0010 collided between branches.
-#   size     changed lines are capped, so "one pull request per initiative" stays one initiative.
-#            Lock files, the project file and captured fixtures do not count. The
-#            `size-override` label plus a body line `Size override: <why>` lifts the cap, and
-#            the reason is printed into the log — the same shape as the gate's own override.
+#   size     changed lines are capped at 1,000 — Ona's published low-risk line, adopted by
+#            ADR 0017 — so "one pull request per initiative" stays one initiative and the
+#            review level means something. Lock files, the project file and captured fixtures
+#            do not count; swiftgate counts the same exclusions, so the cap the gate enforces
+#            and the number the review level cites are one number. The `size-override` label
+#            plus a body line `Size override: <why>` lifts the cap, and the reason is printed
+#            into the log — the same shape as the gate's own override.
 #
 # Usage: Tools/check-pr-conventions.sh <pr-number>      (needs gh, and origin/main fetched)
 set -uo pipefail
 
 pr=${1:?pull request number}
-cap=${MINDLENS_PR_SIZE_CAP:-4000}
+cap=${MINDLENS_PR_SIZE_CAP:-1000}
 repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 base=refs/remotes/origin/main
 failed=0

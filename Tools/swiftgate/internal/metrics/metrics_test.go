@@ -229,7 +229,7 @@ func TestFromLaneCarriesWhatTheScorerKnew(t *testing.T) {
 		Findings: []gate.Finding{{Rule: "review/naming", Severity: gate.Nit, File: "A.swift", Line: 3, Title: "t", Detail: "long", Fix: "long"}},
 	}
 	ev := evidence.Result{Lane: evidence.Idiom, Present: []string{"a diff"}}
-	r := FromLane(Run{PR: 7, SHA: "abc", Branch: "feature/x", URL: "https://run"}, lane, ev, Execution{CostUSD: &cost})
+	r := FromLane(Run{PR: 7, SHA: "abc", Branch: "feature/x", URL: "https://run"}, lane, "claude-sonnet-5", ev, Execution{CostUSD: &cost})
 
 	if r.Kind != KindLane || r.Schema != SchemaVersion || r.PR != 7 || r.SHA != "abc" || r.Lane != "idiom" || r.RunURL != "https://run" {
 		t.Errorf("identity fields: %+v", r)
@@ -252,11 +252,11 @@ func TestFromLaneCarriesWhatTheScorerKnew(t *testing.T) {
 
 	// The harness's own state travels: CANNOT_EVALUATE keeps its cause, a skipped lane
 	// its reason, and neither has a verdict pretending otherwise.
-	cannot := FromLane(Run{}, gate.Lane{Name: "spec", Verdict: gate.CannotEvaluate, Cause: gate.CauseEvidence, Reason: "missing x"}, evidence.Result{Lane: evidence.Spec, Missing: []string{"x"}}, Execution{})
+	cannot := FromLane(Run{}, gate.Lane{Name: "spec", Verdict: gate.CannotEvaluate, Cause: gate.CauseEvidence, Reason: "missing x"}, "claude-opus-5", evidence.Result{Lane: evidence.Spec, Missing: []string{"x"}}, Execution{})
 	if cannot.Cause != gate.CauseEvidence || cannot.Evidence.OK || cannot.Evidence.Missing[0] != "x" {
 		t.Errorf("cannot-evaluate record: %+v", cannot)
 	}
-	skipped := FromLane(Run{}, gate.Lane{Name: "spec", Skipped: "not a feature branch"}, evidence.Result{Lane: evidence.Spec, Skipped: "not a feature branch"}, Execution{})
+	skipped := FromLane(Run{}, gate.Lane{Name: "spec", Skipped: "not a feature branch"}, "claude-opus-5", evidence.Result{Lane: evidence.Spec, Skipped: "not a feature branch"}, Execution{})
 	if skipped.Verdict != "" || skipped.Skipped != "not a feature branch" {
 		t.Errorf("skipped record: %+v", skipped)
 	}
@@ -275,7 +275,7 @@ func TestFromStaticIsALaneForCounting(t *testing.T) {
 func TestAppendThenReadRoundTrips(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "metrics.jsonl")
 	ms := int64(1234)
-	lane := FromLane(Run{PR: 3, SHA: "s"}, gate.Lane{Name: "idiom", Verdict: gate.Pass}, evidence.Result{Lane: evidence.Idiom}, Execution{DurationMS: &ms})
+	lane := FromLane(Run{PR: 3, SHA: "s"}, gate.Lane{Name: "idiom", Verdict: gate.Pass}, "claude-sonnet-5", evidence.Result{Lane: evidence.Idiom}, Execution{DurationMS: &ms})
 	lane.RecordedAt = time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 	out := OutcomeRecord{Kind: KindOutcome, Schema: SchemaVersion, PR: 3, SHA: "s", Head: "h", Lane: "idiom", Rule: "r", File: "A.swift", Line: 2, Outcome: Resolved, Reason: "gone at the head"}
 	if err := Append(path, lane, out); err != nil {

@@ -34,10 +34,17 @@ type LaneStats struct {
 	Verdicts              map[gate.Verdict]int
 	Causes                map[gate.Cause]int
 	Findings              int
-	Severities            map[gate.Severity]int
-	Cost                  Tally // USD, over the runs that reported it
-	Duration              Tally // milliseconds, likewise
-	Outcomes              map[Class]int
+	// Unproven is how many findings this lane wrote without a proof and so never
+	// reported. High beside a low Findings count is a lane writing things it cannot
+	// support — which is what the kill rule is for.
+	Unproven int
+	// Models counts judged runs by model. A noise rate pooled across two models is a
+	// number about neither, so the report shows which produced these records.
+	Models     map[string]int
+	Severities map[gate.Severity]int
+	Cost       Tally // USD, over the runs that reported it
+	Duration   Tally // milliseconds, likewise
+	Outcomes   map[Class]int
 }
 
 // Classified is how many of the lane's findings have an outcome record.
@@ -153,7 +160,11 @@ func Summarise(recs Records, catalog []string) Summary {
 		}
 		if r.Judged() {
 			l.Judged++
+			if r.Model != "" {
+				l.Models[r.Model]++
+			}
 		}
+		l.Unproven += r.Unproven
 		if r.CostUSD != nil {
 			l.Cost.add(*r.CostUSD)
 		}
@@ -232,7 +243,7 @@ func (s *Summary) lane(name string) *LaneStats {
 	l, ok := s.lanes[name]
 	if !ok {
 		l = &LaneStats{Name: name, Verdicts: map[gate.Verdict]int{}, Causes: map[gate.Cause]int{},
-			Severities: map[gate.Severity]int{}, Outcomes: map[Class]int{}}
+			Models: map[string]int{}, Severities: map[gate.Severity]int{}, Outcomes: map[Class]int{}}
 		s.lanes[name] = l
 	}
 	return l
@@ -276,8 +287,8 @@ func (s Summary) Markdown() string {
 	fmt.Fprintf(&b, "%d run(s) over %d pull request(s); %d finding(s) fired, %d classified at merge.\n\n", s.Runs, s.PRs, s.Findings, s.Classified)
 
 	b.WriteString("## Which lane earns its keep\n\n")
-	b.WriteString("| Lane | Runs | Judged | Skipped | PASS | CONCERNS | BLOCK | CANNOT_EVALUATE | Findings | Mean cost | Mean duration | Noise |\n")
-	b.WriteString("|---|---|---|---|---|---|---|---|---|---|---|---|\n")
+	b.WriteString("| Lane | Model | Runs | Judged | Skipped | PASS | CONCERNS | BLOCK | CANNOT_EVALUATE | Findings | Unproven | Mean cost | Mean duration | Noise |\n")
+	b.WriteString("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n")
 	for _, l := range s.Lanes {
 		cannot := fmt.Sprint(l.Verdicts[gate.CannotEvaluate])
 		if n := l.Verdicts[gate.CannotEvaluate]; n > 0 {
@@ -289,13 +300,17 @@ func (s Summary) Markdown() string {
 			}
 			cannot = fmt.Sprintf("%d (%s)", n, strings.Join(causes, ", "))
 		}
-		fmt.Fprintf(&b, "| %s | %d | %d | %d | %d | %d | %d | %s | %d | %s | %s | %s |\n",
-			l.Name, l.Runs, l.Judged, l.Skipped,
+		fmt.Fprintf(&b, "| %s | %s | %d | %d | %d | %d | %d | %d | %s | %d | %d | %s | %s | %s |\n",
+			l.Name, models(l.Models), l.Runs, l.Judged, l.Skipped,
 			l.Verdicts[gate.Pass], l.Verdicts[gate.Concerns], l.Verdicts[gate.Block], cannot,
-			l.Findings, money(l.Cost, l.Judged), duration(l.Duration, l.Judged), noiseCell(l.Outcomes))
+			l.Findings, l.Unproven, money(l.Cost, l.Judged), duration(l.Duration, l.Judged), noiseCell(l.Outcomes))
 	}
 	b.WriteString("\nNoise is untouched ÷ classified: the share of a lane's findings that the merged code did not answer. " +
-		"A lane whose CANNOT_EVALUATE count is mostly `judge` or `output` is failing on infrastructure, not on evidence (ADR 0014).\n\n")
+		"A lane whose CANNOT_EVALUATE count is mostly `judge` or `output` is failing on infrastructure, not on evidence (ADR 0014). " +
+		"Two models in one row means the noise rate pools two judges and is a number about neither — split it before citing it.\n\n" +
+		"**Grant** (ADR 0021): `blocks: true` on ≥10 judged pull requests, noise ≤30%, ≥1 finding classified `changed`. " +
+		"**Kill**: ≥10 judged runs, noise >50%, zero `changed` — the lane is deleted, with an ADR. Both are reviewed pull " +
+		"requests citing this table; neither is automatic.\n\n")
 
 	b.WriteString("## What each pull request cost\n\n| PR | Runs | Cost |\n|---|---|---|\n")
 	for _, p := range s.PullRequests {
@@ -331,6 +346,26 @@ func (s Summary) Markdown() string {
 		}
 	}
 	return b.String()
+}
+
+// models renders which judge produced a lane's records, with the count when more than
+// one did — a rate over two models is a rate about neither.
+func models(counts map[string]int) string {
+	if len(counts) == 0 {
+		return "—"
+	}
+	names := make([]string, 0, len(counts))
+	for name := range counts {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	if len(names) == 1 {
+		return "`" + names[0] + "`"
+	}
+	for i, name := range names {
+		names[i] = fmt.Sprintf("`%s` ×%d", name, counts[name])
+	}
+	return strings.Join(names, ", ")
 }
 
 func money(t Tally, judged int) string {

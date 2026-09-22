@@ -14,10 +14,11 @@ const (
 	Concerns Verdict = "CONCERNS"
 	Block    Verdict = "BLOCK"
 	// CannotEvaluate is set by the harness alone: the lane's evidence gate failed, the
-	// judge never ran, or what it wrote back was not the contract. It blocks. "I could
-	// not look" must never read as "I looked and found little" — on PR #1 the Flutter
-	// checkout produced an empty tree, the reviewer said so in prose, and the gate
-	// reported Passed.
+	// judge never ran, or what it wrote back was not the contract. "I could not look"
+	// must never read as "I looked and found little" — on PR #1 the Flutter checkout
+	// produced an empty tree, the reviewer said so in prose, and the gate reported
+	// Passed. It stays visible on every lane; it stops the merge only on a lane the
+	// config has granted `blocks: true` (ADR 0021).
 	CannotEvaluate Verdict = "CANNOT_EVALUATE"
 )
 
@@ -95,6 +96,19 @@ type Lane struct {
 	// Skipped, when set, says why the lane had nothing to judge on this pull request.
 	// A lane that does not apply is not a lane that failed, and it does not score.
 	Skipped string `json:"skipped,omitempty"`
+	// Unproven is how many findings the judge returned without a proof and so were
+	// dropped before anyone read them (ADR 0021). Counted, not hidden: a lane that
+	// mostly writes findings it cannot prove is a lane the kill rule is about.
+	Unproven int `json:"unproven,omitempty"`
+	// Blocks records whether this lane's verdict could stop the merge on this run, so
+	// the report can say "advisory" without re-reading the config.
+	Blocks bool `json:"blocks"`
+}
+
+// Advisory reports whether the lane had something to say that a granted lane would
+// have blocked on.
+func (l Lane) Advisory() bool {
+	return !l.Blocks && (l.Verdict == Block || l.Verdict == CannotEvaluate)
 }
 
 // Decision is what the scorer decided, with every condition that made it so. Each
@@ -105,16 +119,23 @@ type Decision struct {
 	Reasons []string
 }
 
-// Score is the deterministic scorer, and the only thing that decides the merge. Lanes
-// are advisory; they emit verdicts. It blocks on exactly three conditions: a static
-// blocker, a lane that said BLOCK, or a lane that could not evaluate.
+// Score is the deterministic scorer, and the only thing that decides the merge. It
+// blocks on exactly three conditions: a static blocker, a lane that said BLOCK, or a
+// lane that could not evaluate — and the last two only from a lane the config has
+// granted `blocks: true`.
+//
+// A lane starts advisory and earns blocking on its record (ADR 0021): ≥10 judged pull
+// requests, noise ≤30%, at least one finding classified `changed`. Until then its
+// verdict is reported on the pull request and written to the metrics line, and the
+// merge does not wait on it. The static rules are the deterministic blocking layer
+// throughout, and they are not subject to this.
 func Score(static []Finding, lanes []Lane) Decision {
 	var d Decision
 	if n := len(blockers(static)); n > 0 {
 		d.Reasons = append(d.Reasons, fmt.Sprintf("%d static blocker(s)", n))
 	}
 	for _, l := range lanes {
-		if l.Skipped != "" {
+		if l.Skipped != "" || !l.Blocks {
 			continue
 		}
 		switch l.Verdict {

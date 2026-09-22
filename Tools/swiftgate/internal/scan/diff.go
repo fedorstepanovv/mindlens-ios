@@ -68,6 +68,44 @@ func (d Diff) SwiftFiles() []ChangedFile {
 	return out
 }
 
+// sizeExclusions are the paths that do not count towards a pull request's size:
+// generated or captured content a human does not read line by line. They are the same
+// exclusions Tools/check-pr-conventions.sh passes to git, kept in step deliberately —
+// the conventions job enforces the cap and the gate assigns the review level from the
+// same number, and two different counts on one pull request would be unreconcilable.
+var sizeExclusions = []string{
+	":(exclude)*.resolved",
+	":(exclude)*.pbxproj",
+	":(exclude)*/Fixtures/*",
+}
+
+// ChangedLines is added + deleted between base and head, excluding what does not
+// count. It is what ADR 0017's thresholds are in terms of.
+func ChangedLines(repoDir, base, head string) (int, error) {
+	args := append([]string{"diff", "--numstat", base + "..." + head, "--"}, sizeExclusions...)
+	out, err := git(repoDir, args...)
+	if err != nil {
+		return 0, err
+	}
+	total := 0
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 || fields[0] == "-" { // "-" is a binary file
+			continue
+		}
+		added, err := strconv.Atoi(fields[0])
+		if err != nil {
+			continue
+		}
+		deleted, err := strconv.Atoi(fields[1])
+		if err != nil {
+			continue
+		}
+		total += added + deleted
+	}
+	return total, nil
+}
+
 // Paths lists every changed path.
 func (d Diff) Paths() []string {
 	out := make([]string, 0, len(d.Files))

@@ -46,7 +46,7 @@ func TestDecideRecordsOneMetricsLinePerLane(t *testing.T) {
 		t.Fatalf("prepare exited %d", code)
 	}
 	writeLane(t, repo, evidence.Idiom, `{"verdict": "CONCERNS", "summary": "one nit", "findings": [
-	  {"rule": "review/naming", "severity": "nit", "file": "Packages/MindlensKit/Sources/Features/Dashboard/MoodBadge.swift", "line": 3, "title": "t", "detail": "d", "fix": "f"}
+	  {"rule": "review/naming", "severity": "nit", "file": "Packages/MindlensKit/Sources/Features/Dashboard/MoodBadge.swift", "line": 3, "title": "t", "detail": "d", "proof": "SignInView names its type for the screen", "fix": "f"}
 	]}`)
 	execPath := filepath.Join(repo, review.RunDir, review.ExecutionFile(evidence.Idiom))
 	if err := os.WriteFile(execPath, []byte(`[{"type":"system"},{"type":"result","duration_ms":8000,"total_cost_usd":0.75,"num_turns":6}]`), 0o644); err != nil {
@@ -137,8 +137,28 @@ func TestDecideRecordsNothingWhenTheReviewWasSkipped(t *testing.T) {
 		t.Fatalf("prepare exited %d", code)
 	}
 	runDecide(t, repo)
-	if _, err := os.Stat(filepath.Join(repo, review.RunDir, review.MetricsFile)); !os.IsNotExist(err) {
-		t.Errorf("no metrics file for a skipped review, got %v", err)
+
+	recs, err := metrics.Read(filepath.Join(repo, review.RunDir, review.MetricsFile))
+	if err != nil {
+		t.Fatalf("a skipped review is still a run of the gate and must be recorded: %v", err)
+	}
+	if len(recs.Lanes) != len(evidence.Lanes) {
+		t.Fatalf("one skipped record per lane, got %d: %+v", len(recs.Lanes), recs.Lanes)
+	}
+	for _, r := range recs.Lanes {
+		if r.Skipped == "" || r.Verdict != "" || len(r.Findings) != 0 {
+			t.Errorf("a skipped record says why and claims no verdict: %+v", r)
+		}
+		if r.Judged() {
+			t.Errorf("a skipped lane spent nothing and was not judged: %+v", r)
+		}
+	}
+	// The static pass has nothing to report either, so it gets no record: counting it
+	// as a run would put a PASS in the table for a pull request nobody judged.
+	for _, r := range recs.Lanes {
+		if r.Lane == metrics.StaticLane {
+			t.Errorf("the deterministic pass ran on no Swift; it should not be recorded: %+v", r)
+		}
 	}
 }
 
@@ -193,7 +213,7 @@ func TestOutcomesClassifiesEachFindingAgainstTheMergedHead(t *testing.T) {
 	// model finding and dropped the one about line 5 without that line changing.
 	records := filepath.Join(repo, "records", "metrics.jsonl")
 	lane := func(sha string, findings ...gate.Finding) metrics.LaneRecord {
-		return metrics.FromLane(metrics.Run{PR: 5, SHA: sha}, gate.Lane{Name: "idiom", Verdict: gate.Concerns, Findings: findings}, evidence.Result{Lane: evidence.Idiom}, metrics.Execution{})
+		return metrics.FromLane(metrics.Run{PR: 5, SHA: sha}, gate.Lane{Name: "idiom", Verdict: gate.Concerns, Findings: findings}, "claude-sonnet-5", evidence.Result{Lane: evidence.Idiom}, metrics.Execution{})
 	}
 	naming := gate.Finding{Rule: "review/naming", Severity: gate.Warning, File: badge, Line: 3}
 	mvvm := gate.Finding{Rule: "review/mvvm", Severity: gate.Nit, File: badge, Line: 4}

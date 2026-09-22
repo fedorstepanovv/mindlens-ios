@@ -54,11 +54,20 @@ summary and judge against what it plainly meant.
 An empty findings list with `PASS` is a normal, good outcome. Quote the step text and the
 diff line you are holding it to.
 
+## Proof
+
+**Every finding needs a `proof`, and one without it is not reported.** A proof is the
+concrete thing that makes the finding true rather than plausible: the step's own words beside the diff line that does not meet them.
+The harness drops a finding with no proof before anyone reads it and counts the drop in
+this lane's record — so an unproven finding is work spent to make this lane look worse.
+If you cannot write the proof, you do not have a finding. Leave it out and say so in the
+summary if it matters.
+
 ## Output
 
 The structured output has `verdict`, `summary` (one plain paragraph: which step, whether the
 diff meets its ready condition, what is outside it), and `findings`. Each finding: `rule`
 (stable, kebab-case, `spec/<name>`), `severity`, `file` (repository-relative; a Swift file
 or the feature file), `line` (1-indexed; omit for a whole-file point), `title`, `detail`
-(quote the step and the code), `fix` (what would satisfy the step, or what to record), `doc`
+(quote the step and the code), `proof` (see above; required), `fix` (what would satisfy the step, or what to record), `doc`
 (`docs/features/<name>.md` and the step number, or the ADR to write).

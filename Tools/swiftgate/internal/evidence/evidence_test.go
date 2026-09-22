@@ -23,8 +23,16 @@ func touch(t *testing.T, root, rel string) {
 func swiftDiff(paths ...string) scan.Diff {
 	d := scan.Diff{Unified: "+let x = 1\n"}
 	for _, p := range paths {
-		d.Files = append(d.Files, scan.ChangedFile{Path: p, Status: "M"})
+		d.Files = append(d.Files, scan.ChangedFile{Path: p, Status: "M",
+			Added: []scan.AddedLine{{Number: 1, Text: "let x = 1"}}})
 	}
+	return d
+}
+
+// viewDiff is a diff the idiom lane applies to: it adds a type conforming to View.
+func viewDiff(paths ...string) scan.Diff {
+	d := swiftDiff(paths...)
+	d.Files[0].Added = append(d.Files[0].Added, scan.AddedLine{Number: 2, Text: "struct MoodBadge: View {"})
 	return d
 }
 
@@ -33,7 +41,7 @@ const featureFile = "Packages/MindlensKit/Sources/Features/Dashboard/DashboardMo
 // The bug from PR #1: the judge ran with nothing to hold the change against and the
 // gate passed. Today the standard is an exemplar; none retrieved is missing evidence.
 func TestIdiomLaneNeedsAnExemplar(t *testing.T) {
-	in := Inputs{RepoDir: t.TempDir(), Diff: swiftDiff(featureFile)}
+	in := Inputs{RepoDir: t.TempDir(), Diff: viewDiff(featureFile)}
 	got := Check(Idiom, in)
 	if got.OK() || !strings.Contains(strings.Join(got.Missing, ""), "exemplar") {
 		t.Fatalf("no exemplar must be missing evidence, got %+v", got)
@@ -52,6 +60,56 @@ func TestIdiomLaneSkipsWhenNoSwiftChanged(t *testing.T) {
 	got := Check(Idiom, Inputs{RepoDir: t.TempDir(), Diff: swiftDiff("docs/STATE.md")})
 	if got.Applies() {
 		t.Errorf("a docs-only PR has nothing for the idiom lane, got %+v", got)
+	}
+}
+
+// The trigger (ADR 0021): the lane runs where structural translation happens — a View,
+// an @Observable type, or a whole new file under a feature target — and skips the rest
+// with the reason recorded, so `swiftgate metrics` can still count how often it was
+// eligible. It is the lane expected to fail the grant rule; this is what bounds its cost.
+func TestIdiomLaneAppliesOnlyWhereStructureIsAdded(t *testing.T) {
+	line := func(text string) scan.Diff {
+		d := swiftDiff(featureFile)
+		d.Files[0].Added = []scan.AddedLine{{Number: 1, Text: text}}
+		return d
+	}
+	newFile := func(path string) scan.Diff {
+		d := swiftDiff(path)
+		d.Files[0].Status = "A"
+		return d
+	}
+
+	cases := []struct {
+		name    string
+		diff    scan.Diff
+		applies bool
+	}{
+		{"adds a View", line("struct MoodBadge: View {"), true},
+		{"adds a View with other conformances", line("struct MoodBadge: Identifiable, View {"), true},
+		{"adds an @Observable type", line("@Observable"), true},
+		{"adds an indented @Observable", line("    @Observable @MainActor"), true},
+		{"a new file under a feature target", newFile("Packages/MindlensKit/Sources/Features/Dashboard/Row.swift"), true},
+
+		{"a repository change adds neither", line("    func load() async throws -> [Entry] {"), false},
+		{"a word that merely contains View", line("    let previewMode = true"), false},
+		{"a View mentioned but not declared", line("    // returns some View"), false},
+		{"a new file outside a feature target", newFile("Packages/MindlensKit/Sources/Networking/Endpoint.swift"), false},
+		// A test file that happens to declare a view is not where translation lands,
+		// and judging test scaffolding against production exemplars is noise.
+		{"a View added in a test", func() scan.Diff {
+			d := swiftDiff("Packages/MindlensKit/Tests/DashboardTests/HostTests.swift")
+			d.Files[0].Added = []scan.AddedLine{{Number: 1, Text: "struct Host: View {"}}
+			return d
+		}(), false},
+	}
+	for _, c := range cases {
+		got := Check(Idiom, Inputs{RepoDir: t.TempDir(), Diff: c.diff, Exemplars: 1})
+		if got.Applies() != c.applies {
+			t.Errorf("%s: applies = %v, want %v (%+v)", c.name, got.Applies(), c.applies, got)
+		}
+		if !c.applies && !strings.Contains(got.Skipped, "no view or model added") {
+			t.Errorf("%s: a skip must say why, so metrics can count it; got %q", c.name, got.Skipped)
+		}
 	}
 }
 

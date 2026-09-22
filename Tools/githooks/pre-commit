@@ -1,7 +1,7 @@
 #!/bin/bash
 # Runs before every commit, in a terminal and in a session alike — .claude/hooks/session-start.sh
 # points core.hooksPath here the first time a session opens the repo. Branch protection is a 403
-# on this plan (ADR 0013), so these hooks are the mechanism; CLAUDE.md is only the explanation.
+# on this plan (ADR 0013), so these hooks are the mechanism; AGENTS.md is only the explanation.
 #
 # Each check names the history it comes from. A check that fires prints one line and exits 1;
 # nothing here rewrites anything.
@@ -52,7 +52,9 @@ done < "$cache"
 #    anyone opened one. Counted against origin/main *and* every open PR head, so a branch stacked
 #    on an open pull request is charged only for its own commits. The cap is sized for one
 #    initiative on one branch (ADR 0015), not one step; it catches a branch that never lands.
-max=${MINDLENS_MAX_UNREVIEWED_COMMITS:-25}
+#    Ten, with ADR 0017's 1,000-line pull requests: a branch that needs more than ten commits
+#    before anyone can see it is past the size a human reads at one sitting.
+max=${MINDLENS_MAX_UNREVIEWED_COMMITS:-10}
 if [ "$this_has_pr" = 0 ]; then
   # ${heads[@]+"${heads[@]}"}: with no open pull request the array is empty, and bash 3.2 — the
   # one macOS ships — treats an empty array under `set -u` as unbound. The `|| echo 0` then

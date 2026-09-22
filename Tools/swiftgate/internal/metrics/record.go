@@ -58,6 +58,14 @@ type LaneRecord struct {
 
 	// Lane is verification, idiom, spec, or StaticLane.
 	Lane string `json:"lane"`
+	// Model is the judge that produced this verdict. Recorded because a lane's noise
+	// rate is a number about a lane *and a model*: without this, changing the model
+	// would silently pool two judges' records into one rate (ADR 0021).
+	Model string `json:"model,omitempty"`
+	// Blocks is whether this lane's verdict could stop the merge on this run. The
+	// grant is a reviewed change to .github/swiftgate.yml, and the records say from
+	// which run it took effect.
+	Blocks bool `json:"blocks"`
 	// Verdict is empty when the lane was skipped.
 	Verdict gate.Verdict `json:"verdict,omitempty"`
 	// Cause is set with CANNOT_EVALUATE: which harness condition fired.
@@ -69,6 +77,8 @@ type LaneRecord struct {
 	// Evidence is the gate result the verdict was scored from. Nil for the static pass.
 	Evidence *EvidenceSummary `json:"evidence,omitempty"`
 	Findings []FindingRecord  `json:"findings"`
+	// Unproven is how many of this lane's findings were dropped for want of a proof.
+	Unproven int `json:"unproven,omitempty"`
 
 	// From the execution file, when it said. See the type comment.
 	DurationMS *int64   `json:"duration_ms,omitempty"`
@@ -103,13 +113,15 @@ func (r LaneRecord) Judged() bool {
 }
 
 // FromLane builds the record for one lane from what the scorer had in hand.
-func FromLane(run Run, lane gate.Lane, ev evidence.Result, exec Execution) LaneRecord {
+func FromLane(run Run, lane gate.Lane, model string, ev evidence.Result, exec Execution) LaneRecord {
 	r := LaneRecord{
 		Kind: KindLane, Schema: SchemaVersion, RecordedAt: time.Now().UTC(),
 		PR: run.PR, SHA: run.SHA, Branch: run.Branch, RunURL: run.URL,
-		Lane: lane.Name, Verdict: lane.Verdict, Cause: lane.Cause, Reason: lane.Reason, Skipped: lane.Skipped,
+		Lane: lane.Name, Model: model, Blocks: lane.Blocks,
+		Verdict: lane.Verdict, Cause: lane.Cause, Reason: lane.Reason, Skipped: lane.Skipped,
 		Evidence:   &EvidenceSummary{OK: ev.OK(), Present: ev.Present, Missing: ev.Missing},
 		Findings:   findingRecords(lane.Findings),
+		Unproven:   lane.Unproven,
 		DurationMS: exec.DurationMS, CostUSD: exec.CostUSD, Turns: exec.Turns,
 	}
 	return r
@@ -121,9 +133,25 @@ func FromStatic(run Run, findings []gate.Finding) LaneRecord {
 	return LaneRecord{
 		Kind: KindLane, Schema: SchemaVersion, RecordedAt: time.Now().UTC(),
 		PR: run.PR, SHA: run.SHA, Branch: run.Branch, RunURL: run.URL,
-		Lane: StaticLane, Verdict: gate.VerdictFromFindings(findings),
+		Lane: StaticLane, Blocks: true, Verdict: gate.VerdictFromFindings(findings),
 		Findings: findingRecords(findings),
 	}
+}
+
+// Skipped records a run on which no judge was called at all, because the pull request
+// changed no Swift. Without it the records answer "of the runs we measured, how did
+// each lane do" and not "how often was there anything to measure" — and coverage is
+// half of whether a lane earns its keep.
+func Skipped(run Run, reason string) []LaneRecord {
+	out := make([]LaneRecord, 0, len(evidence.Lanes))
+	for _, lane := range evidence.Lanes {
+		out = append(out, LaneRecord{
+			Kind: KindLane, Schema: SchemaVersion, RecordedAt: time.Now().UTC(),
+			PR: run.PR, SHA: run.SHA, Branch: run.Branch, RunURL: run.URL,
+			Lane: string(lane), Skipped: reason, Findings: []FindingRecord{},
+		})
+	}
+	return out
 }
 
 func findingRecords(fs []gate.Finding) []FindingRecord {

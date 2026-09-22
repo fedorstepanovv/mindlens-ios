@@ -52,19 +52,27 @@ check. The rules are ADR 0013; the body it fills is `.github/PULL_REQUEST_TEMPLA
 ## Mode: status — `/pr status`
 
 1. `gh pr view --json number,title,mergeable,mergeStateStatus,statusCheckRollup,labels`.
-2. If a check failed, read the readiness comment — the one starting `<!-- swiftgate:report -->`
-   — which lists every condition that fired, then the lane comment it points at. Separate the
-   two kinds of red. A lane at `CANNOT_EVALUATE` never judged: its comment says whether
-   evidence was missing (fix the input it names) or the judge did not run (re-run the job and
-   read that lane's step log). Every finding is a claim about the code, answered in code or,
-   for a static rule, waived in place with `// swiftgate:allow <rule> — reason`.
-3. Report in under ten lines: what is red, why, and the one next action.
+2. Read the readiness comment — the one starting `<!-- swiftgate:report -->`. Its first line
+   is the **review level**: *pass* (merge on the gate's approval), *brief* (this comment and
+   the body), *full* (the diff). It also lists every condition that fired, and points at each
+   lane's own comment.
+3. If a check failed, separate the two kinds of red. A lane at `CANNOT_EVALUATE` never judged:
+   its comment says whether evidence was missing (fix the input it names) or the judge did not
+   run (re-run the job and read that lane's step log). Every finding is a claim about the code,
+   answered in code or, for a static rule, waived in place with `// swiftgate:allow <rule> —
+   reason`.
+4. **A lane marked advisory did not make the gate red** — it cannot, until its record earns
+   `blocks: true` (ADR 0021). Its findings are still claims about the code and still worth
+   answering; they are just not what is blocking. Say which is which.
+5. Report in under ten lines: the level, what is red, why, and the one next action.
 
 ## Mode: land — `/pr land`
 
 1. **Preconditions, all of them.** Every check green and `mergeable` is `MERGEABLE`; or the
    gate is red, the `gate-override` label is set *and* the body carries the reason line.
-   Otherwise stop and run the status mode instead.
+   Otherwise stop and run the status mode instead. **Fedir reads to the level the gate
+   assigned** — the `review:pass|brief|full` label, and the reasons in the readiness comment —
+   before he merges. A session never merges, whatever the level says (ADR 0017).
 2. **If the branch lives in a worktree, remove it first** — `git worktree list` names it;
    `git worktree remove <path>`. A branch checked out anywhere cannot be deleted, and
    `prune` only forgets worktrees whose directory is already gone.

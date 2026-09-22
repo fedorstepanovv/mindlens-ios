@@ -28,25 +28,28 @@ func TestIngestReadsFindings(t *testing.T) {
       "findings": [
         {"rule": "flutter/translated-layering", "severity": "blocker",
          "file": "Sources/A.swift", "line": 12,
-         "title": "t", "detail": "d", "fix": "f", "doc": "docs/PATTERNS.md"}
+         "title": "t", "detail": "d", "proof": "SignInView holds no ViewModel", "fix": "f", "doc": "docs/PATTERNS.md"}
       ]
     }`)
 
-	verdict, summary, findings, err := Ingest(path)
+	j, err := Ingest(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if verdict != gate.Block || summary != "Reads as translated Dart." {
-		t.Errorf("verdict and summary not carried: %q %q", verdict, summary)
+	if j.Verdict != gate.Block || j.Summary != "Reads as translated Dart." {
+		t.Errorf("verdict and summary not carried: %q %q", j.Verdict, j.Summary)
 	}
-	if len(findings) != 1 {
-		t.Fatalf("expected 1 finding, got %d", len(findings))
+	if len(j.Findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(j.Findings))
 	}
-	if findings[0].Severity != gate.Blocker {
-		t.Errorf("severity not parsed: %q", findings[0].Severity)
+	if j.Findings[0].Severity != gate.Blocker {
+		t.Errorf("severity not parsed: %q", j.Findings[0].Severity)
 	}
-	if findings[0].Source != gate.FromAgent {
-		t.Errorf("findings from the reviewer must be attributed to it, got %q", findings[0].Source)
+	if j.Findings[0].Proof != "SignInView holds no ViewModel" {
+		t.Errorf("the proof is what makes the finding reportable; it must be carried: %q", j.Findings[0].Proof)
+	}
+	if j.Findings[0].Source != gate.FromAgent {
+		t.Errorf("findings from the reviewer must be attributed to it, got %q", j.Findings[0].Source)
 	}
 }
 
@@ -54,44 +57,44 @@ func TestIngestToleratesAFencedFile(t *testing.T) {
 	// Claude Code sometimes writes a JSON file wrapped in a code fence. Blocking a
 	// merge over that would be absurd.
 	path := writeFindings(t, "```json\n{\"verdict\": \"PASS\", \"summary\": \"clean\", \"findings\": []}\n```\n")
-	verdict, summary, findings, err := Ingest(path)
+	j, err := Ingest(path)
 	if err != nil {
 		t.Fatalf("a fenced findings file should still parse: %v", err)
 	}
-	if verdict != gate.Pass || summary != "clean" || len(findings) != 0 {
-		t.Errorf("unexpected result: %q %q / %d", verdict, summary, len(findings))
+	if j.Verdict != gate.Pass || j.Summary != "clean" || len(j.Findings) != 0 {
+		t.Errorf("unexpected result: %q %q / %d", j.Verdict, j.Summary, len(j.Findings))
 	}
 }
 
 func TestIngestRefusesASeverityOutsideTheSchema(t *testing.T) {
 	path := writeFindings(t, `{"verdict":"CONCERNS","summary":"v","findings":[
-      {"rule":"a/b","severity":"critical","file":"Sources/B.swift","title":"t","detail":"d","fix":"f"}
+      {"rule":"a/b","severity":"critical","file":"Sources/B.swift","title":"t","detail":"d","proof":"p","fix":"f"}
     ]}`)
-	if _, _, _, err := Ingest(path); err == nil || !strings.Contains(err.Error(), "critical") {
+	if _, err := Ingest(path); err == nil || !strings.Contains(err.Error(), "critical") {
 		t.Fatalf("a severity the schema does not name is a contract violation, got %v", err)
 	}
 }
 
 func TestIngestDropsFindingsWithNoActionableSwiftLine(t *testing.T) {
 	path := writeFindings(t, `{"verdict":"CONCERNS","summary":"v","findings":[
-      {"rule":"a/c","severity":"warning","file":"","title":"t","detail":"d","fix":"f"},
-      {"rule":"a/d","severity":"warning","file":"./Sources/B.swift","title":"t","detail":"d","fix":"f"}
+      {"rule":"a/c","severity":"warning","file":"","title":"t","detail":"d","proof":"p","fix":"f"},
+      {"rule":"a/d","severity":"warning","file":"./Sources/B.swift","title":"t","detail":"d","proof":"p","fix":"f"}
     ]}`)
 
-	_, _, findings, err := Ingest(path)
+	j, err := Ingest(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(findings) != 1 {
-		t.Fatalf("expected only the Swift finding to survive, got %d", len(findings))
+	if len(j.Findings) != 1 {
+		t.Fatalf("expected only the Swift finding to survive, got %d", len(j.Findings))
 	}
-	if findings[0].File != "Sources/B.swift" {
-		t.Errorf("leading ./ should be stripped, got %q", findings[0].File)
+	if j.Findings[0].File != "Sources/B.swift" {
+		t.Errorf("leading ./ should be stripped, got %q", j.Findings[0].File)
 	}
 }
 
 func TestIngestFailsLoudlyOnMissingBrokenOrOffContractFile(t *testing.T) {
-	if _, _, _, err := Ingest(filepath.Join(t.TempDir(), "absent.json")); err == nil {
+	if _, err := Ingest(filepath.Join(t.TempDir(), "absent.json")); err == nil {
 		t.Error("a missing findings file must be an error, not an empty clean review")
 	}
 	for name, body := range map[string]string{
@@ -100,7 +103,7 @@ func TestIngestFailsLoudlyOnMissingBrokenOrOffContractFile(t *testing.T) {
 		"prose verdict":   `{"verdict": "looks fine", "summary": "s", "findings": []}`,
 		"harness verdict": `{"verdict": "CANNOT_EVALUATE", "summary": "s", "findings": []}`,
 	} {
-		if _, _, _, err := Ingest(writeFindings(t, body)); err == nil {
+		if _, err := Ingest(writeFindings(t, body)); err == nil {
 			t.Errorf("%s: must be an error, never a verdict", name)
 		}
 	}
@@ -111,13 +114,68 @@ func TestSchemaIsValidJSONAndNamesTheContract(t *testing.T) {
 	if err := json.Unmarshal([]byte(Schema), &schema); err != nil {
 		t.Fatalf("the schema is not JSON: %v", err)
 	}
-	for _, want := range []string{`"PASS"`, `"CONCERNS"`, `"BLOCK"`, `"findings"`, `"summary"`} {
+	for _, want := range []string{`"PASS"`, `"CONCERNS"`, `"BLOCK"`, `"findings"`, `"summary"`, `"proof"`} {
 		if !strings.Contains(Schema, want) {
 			t.Errorf("schema should name %s", want)
 		}
 	}
 	if strings.Contains(Schema, "CANNOT_EVALUATE") {
 		t.Error("the harness's verdict must not be one a judge can return")
+	}
+	// The schema is the first place the proof is asked for, and Ingest is the second.
+	// Asking in only one place is how it becomes optional in practice.
+	required := schema["properties"].(map[string]any)["findings"].(map[string]any)["items"].(map[string]any)["required"].([]any)
+	var hasProof bool
+	for _, f := range required {
+		hasProof = hasProof || f == "proof"
+	}
+	if !hasProof {
+		t.Errorf("proof must be required of every finding, not merely offered: %v", required)
+	}
+}
+
+// ADR 0021: a finding without a proof is not reported. It is counted, because a judge
+// that mostly writes findings it cannot support is the one the kill rule is about —
+// and a silent drop would hide exactly that.
+func TestIngestDropsUnprovenFindingsAndCountsThem(t *testing.T) {
+	path := writeFindings(t, `{"verdict":"CONCERNS","summary":"v","findings":[
+      {"rule":"a/b","severity":"warning","file":"Sources/A.swift","line":1,"title":"no proof","detail":"d","fix":"f"},
+      {"rule":"a/c","severity":"warning","file":"Sources/B.swift","line":2,"title":"blank proof","detail":"d","proof":"   ","fix":"f"},
+      {"rule":"a/d","severity":"warning","file":"Sources/C.swift","line":3,"title":"proven","detail":"d","proof":"loadFailed() never sets error; line 3 returns early","fix":"f"}
+    ]}`)
+
+	j, err := Ingest(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(j.Findings) != 1 || j.Findings[0].Title != "proven" {
+		t.Fatalf("only the proven finding may be reported, got %+v", j.Findings)
+	}
+	if j.Unproven != 2 {
+		t.Errorf("both unproven findings must be counted, got %d", j.Unproven)
+	}
+}
+
+// A judge can still say BLOCK with nothing reportable behind it. That reads as
+// "BLOCK, 0 findings, 2 unproven" — the truth about the judge. Quietly downgrading it
+// to PASS would hide the lane most worth cutting.
+func TestAVerdictStandsWhenEveryFindingBehindItWasUnproven(t *testing.T) {
+	present := evidence.Result{Lane: evidence.Idiom, Present: []string{"the diff"}}
+	path := writeFindings(t, `{"verdict":"BLOCK","summary":"translated","findings":[
+      {"rule":"a/b","severity":"blocker","file":"Sources/A.swift","line":1,"title":"t","detail":"d","fix":"f"}
+    ]}`)
+	lane := Lane(present, true, false, path)
+	if lane.Verdict != gate.Block || len(lane.Findings) != 0 || lane.Unproven != 1 {
+		t.Errorf("want BLOCK with 0 findings and 1 unproven, got %+v", lane)
+	}
+	if lane.Blocks {
+		t.Error("the lane was not granted; it must not carry Blocks")
+	}
+	if !lane.Advisory() {
+		t.Error("an ungranted lane saying BLOCK is exactly what Advisory is for")
+	}
+	if body := lane.Markdown(gate.ReportContext{}, "x"); !strings.Contains(body, "proof") || !strings.Contains(body, "Advisory") {
+		t.Errorf("the lane comment must say what was dropped and that it stopped nothing:\n%s", body)
 	}
 }
 
@@ -128,10 +186,10 @@ func TestLaneIsCannotEvaluateWheneverTheJudgementIsAbsent(t *testing.T) {
 	clean := writeFindings(t, `{"verdict": "PASS", "summary": "clean", "findings": []}`)
 
 	cases := map[string]gate.Lane{
-		"evidence missing":               Lane(evidence.Result{Lane: evidence.Idiom, Missing: []string{"a Dart file"}}, true, clean),
-		"judge did not run":              Lane(present, false, clean),
-		"findings file absent":           Lane(present, true, filepath.Join(t.TempDir(), "absent.json")),
-		"findings file not the contract": Lane(present, true, writeFindings(t, "not json")),
+		"evidence missing":               Lane(evidence.Result{Lane: evidence.Idiom, Missing: []string{"a Dart file"}}, true, true, clean),
+		"judge did not run":              Lane(present, false, true, clean),
+		"findings file absent":           Lane(present, true, true, filepath.Join(t.TempDir(), "absent.json")),
+		"findings file not the contract": Lane(present, true, true, writeFindings(t, "not json")),
 	}
 	for name, lane := range cases {
 		if lane.Verdict != gate.CannotEvaluate {
@@ -152,14 +210,14 @@ func TestLaneIsCannotEvaluateWheneverTheJudgementIsAbsent(t *testing.T) {
 func TestLaneReadsTheJudgeOnlyWhenEverythingElseHolds(t *testing.T) {
 	present := evidence.Result{Lane: evidence.Idiom, Present: []string{"the diff"}}
 	path := writeFindings(t, `{"verdict": "PASS", "summary": "one real problem", "findings": [
-	  {"rule": "a/b", "severity": "warning", "file": "Sources/A.swift", "line": 1, "title": "t", "detail": "d", "fix": "f"}
+	  {"rule": "a/b", "severity": "warning", "file": "Sources/A.swift", "line": 1, "title": "t", "detail": "d", "proof": "p", "fix": "f"}
 	]}`)
-	lane := Lane(present, true, path)
+	lane := Lane(present, true, true, path)
 	if lane.Verdict != gate.Concerns || len(lane.Findings) != 1 || lane.Reason != "one real problem" {
 		t.Errorf("a judge that says PASS over a warning has contradicted itself; the findings win: %+v", lane)
 	}
 
-	skipped := Lane(evidence.Result{Lane: evidence.Spec, Skipped: "not a feature branch"}, false, path)
+	skipped := Lane(evidence.Result{Lane: evidence.Spec, Skipped: "not a feature branch"}, false, true, path)
 	if skipped.Skipped == "" || skipped.Verdict != "" {
 		t.Errorf("a lane that does not apply is skipped, not judged and not failed: %+v", skipped)
 	}
