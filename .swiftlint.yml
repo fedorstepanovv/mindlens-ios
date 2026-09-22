@@ -122,7 +122,7 @@ custom_rules:
   no_impl_suffix:
     name: "Impl suffix"
     regex: '(class|struct|final class)\s+\w+Impl\b'
-    message: "Name the type for what it is (APIAuthRepository), not Impl. See CLAUDE.md."
+    message: "Name the type for what it is (APIAuthRepository), not Impl. See AGENTS.md."
     severity: error
 
 reporter: "xcode"

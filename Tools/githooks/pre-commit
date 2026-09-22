@@ -1,7 +1,7 @@
 #!/bin/bash
 # Runs before every commit, in a terminal and in a session alike — .claude/hooks/session-start.sh
 # points core.hooksPath here the first time a session opens the repo. Branch protection is a 403
-# on this plan (ADR 0013), so these hooks are the mechanism; CLAUDE.md is only the explanation.
+# on this plan (ADR 0013), so these hooks are the mechanism; AGENTS.md is only the explanation.
 #
 # Each check names the history it comes from. A check that fires prints one line and exits 1;
 # nothing here rewrites anything.

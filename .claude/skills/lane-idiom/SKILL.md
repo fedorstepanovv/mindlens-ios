@@ -23,7 +23,7 @@ transcript. A following step scores it; you do not decide the merge.
 
 Judge each changed file against the exemplars chosen for it. The question is whether the
 change is *shaped like them*: the same depth of decomposition, the same way state is held,
-the same seams. `CLAUDE.md`, `docs/PATTERNS.md`, `docs/ARCHITECTURE.md` and `docs/DESIGN.md`
+the same seams. `AGENTS.md`, `docs/PATTERNS.md`, `docs/ARCHITECTURE.md` and `docs/DESIGN.md`
 say why the exemplars look the way they do; cite them.
 
 The Flutter app is not on the runner. Never speculate about Dart you have not read: judge
@@ -65,6 +65,16 @@ the shape of the Swift against the exemplars, not against a Cubit you imagine be
 An empty findings list with `PASS` is a normal, good outcome. Review only what this PR
 changed; pre-existing debt in a touched file is not this PR's. Quote the line you mean.
 
+## Proof
+
+**Every finding needs a `proof`, and one without it is not reported.** A proof is the
+concrete thing that makes the finding true rather than plausible: the exemplar this change contradicts, named, and the line in each where
+they differ.
+The harness drops a finding with no proof before anyone reads it and counts the drop in
+this lane's record — so an unproven finding is work spent to make this lane look worse.
+If you cannot write the proof, you do not have a finding. Leave it out and say so in the
+summary if it matters.
+
 ## Output
 
 The structured output has `verdict`, `summary` (one plain paragraph: does this read as
@@ -72,4 +82,5 @@ native Swift shaped like its exemplars, or as translated Flutter), and `findings
 finding: `rule` (stable, kebab-case, `flutter/…`, `design/…`, `arch/…` or `swift/…`),
 `severity`, `file` (a Swift file, repository-relative), `line` (1-indexed; omit for a
 whole-file point), `title`, `detail` (quote the code; name the exemplar it departs from),
+`proof` (see above; required),
 `fix` (the concrete Swift to write), `doc` (the document and section that says so).

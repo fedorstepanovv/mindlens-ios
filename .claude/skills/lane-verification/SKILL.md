@@ -61,10 +61,20 @@ the hard case" section are the two you will cite most.
 An empty findings list with `PASS` is a normal, good outcome. Review only what this PR
 changed; quote the line you mean. A finding a reviewer would not act on is worse than none.
 
+## Proof
+
+**Every finding needs a `proof`, and one without it is not reported.** A proof is the
+concrete thing that makes the finding true rather than plausible: the input or state that reaches the changed code, and the line where the
+test fails to exercise it — or the fake's thrown type beside production's.
+The harness drops a finding with no proof before anyone reads it and counts the drop in
+this lane's record — so an unproven finding is work spent to make this lane look worse.
+If you cannot write the proof, you do not have a finding. Leave it out and say so in the
+summary if it matters.
+
 ## Output
 
 The structured output has `verdict`, `summary` (one plain paragraph: what the suite proves
 and what it does not), and `findings`. Each finding: `rule` (stable, kebab-case,
 `test/<name>`), `severity`, `file` (a Swift file, repository-relative), `line` (1-indexed;
-omit for a whole-file point), `title`, `detail` (quote the code), `fix` (the concrete test to
-write), `doc` (the section of `docs/TESTING.md` that says so).
+omit for a whole-file point), `title`, `detail` (quote the code), `proof` (see above; required), `fix` (the concrete
+test to write), `doc` (the section of `docs/TESTING.md` that says so).

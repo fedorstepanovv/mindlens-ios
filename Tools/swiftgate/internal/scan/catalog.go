@@ -48,7 +48,7 @@ type LineRule struct {
 
 // lineRules is the deterministic half of the gate. These are the Flutter habits and
 // non-idiomatic shapes that can be caught without a model reading anything. Each one
-// guards something CLAUDE.md or docs/ calls non-negotiable that neither the compiler nor
+// guards something AGENTS.md or docs/ calls non-negotiable that neither the compiler nor
 // SwiftLint already enforces, and each has a test in static_test.go — a rule with
 // neither is deleted, not kept on faith.
 var lineRules = []LineRule{
@@ -91,7 +91,7 @@ var lineRules = []LineRule{
 		Title:   "GCD where structured concurrency belongs",
 		Detail:  "Hopping queues by hand is the pre-async/await idiom. `@MainActor` expresses the same intent to the compiler, which can then check it.",
 		Fix:     "Annotate the type or method `@MainActor`, or `await MainActor.run { }` at a genuine boundary. Keep `DispatchQueue.main` only as a Combine scheduler.",
-		Doc:     "CLAUDE.md § Concurrency",
+		Doc:     "AGENTS.md § Concurrency",
 	},
 	{
 		ID:      "core/raw-date-now",
@@ -141,7 +141,7 @@ var lineRules = []LineRule{
 		Title:   "Flutter type vocabulary",
 		Detail:  "`Widget`, `Cubit`, `Bloc` and `StateNotifier` are Flutter's words for things SwiftUI already names. A type carrying one of them was almost certainly translated rather than designed.",
 		Fix:     "A SwiftUI `View` is a view — `MoodBadge`, not `MoodBadgeWidget`. State coordination lives in an `@Observable` model named for the screen.",
-		Doc:     "CLAUDE.md § The one rule that matters most",
+		Doc:     "AGENTS.md § The one rule that matters most",
 	},
 }
 

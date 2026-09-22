@@ -35,10 +35,10 @@ decision is not yours to remake; if it is genuinely wrong, supersede it with a n
 ## 4. Read the Flutter app as product spec — then close it
 `../app/mindlensapp` tells you what a screen does, how a flow sequences, what the copy
 says, what the API returns. It tells you **nothing** about how to build it. Never port its
-structure, never imitate its UI. See the top of `CLAUDE.md`.
+structure, never imitate its UI. See the top of `AGENTS.md`.
 
 ## 5. Load only what your task routes to
-Use the table in `CLAUDE.md`. A new target means `docs/ARCHITECTURE.md` + ADR 0002; Swift
+Use the table in `AGENTS.md`. A new target means `docs/ARCHITECTURE.md` + ADR 0002; Swift
 means `docs/PATTERNS.md`; UI means `docs/DESIGN.md`; an endpoint or model means
 `docs/API.md`; tests mean `docs/TESTING.md`. Do not read the rest — that context is for
 the work.

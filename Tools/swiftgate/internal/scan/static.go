@@ -248,7 +248,7 @@ func (s Static) namingFindings(files []ChangedFile) []gate.Finding {
 			Title:    "Dart file naming: `" + name + "`",
 			Detail:   "snake_case names ending in `_cubit`, `_state`, `_screen` or `_widget` are Dart conventions. A file named this way is usually a translated file, not a designed one.",
 			Fix:      "Name the file after the Swift type it declares, in UpperCamelCase — `DashboardModel.swift`, `MoodBadge.swift`.",
-			Doc:      "CLAUDE.md § The one rule that matters most",
+			Doc:      "AGENTS.md § The one rule that matters most",
 		})
 	}
 	return out
