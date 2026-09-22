@@ -139,6 +139,45 @@ func verification(in Inputs) Result {
 	return r
 }
 
+// addsView matches a type declaration conforming to View on an added line:
+// `struct MoodBadge: View {`, and the same with a longer conformance list.
+var addsView = regexp.MustCompile(`\b(?:struct|class|enum)\s+\w+\s*:[^{]*\bView\b`)
+
+// addsObservable matches the macro that marks a type as presentation state.
+var addsObservable = regexp.MustCompile(`^\s*@Observable\b`)
+
+const featureSources = packageSources + "Features/"
+
+// idiomApplies says whether this diff is the kind the idiom lane exists to judge:
+// one that *adds* a View, an @Observable type, or a whole new file under a feature
+// target. That is where structural translation happens — a Cubit becoming a ViewModel,
+// a widget tree becoming a view hierarchy.
+//
+// The trigger is a cost bound, not a claim that idiom cannot drift elsewhere. It is the
+// lane expected to fail the grant rule (ADR 0021): this repository's own Swift incidents
+// are correctness, the mechanical Flutter-isms are already caught by the static rules,
+// and idiom is the lowest-precision question of the three. Running it on every
+// repository-shuffling diff would spend the most on the judge least likely to earn its
+// keep, and a skip is recorded, so `swiftgate metrics` can still say how often it was
+// eligible at all.
+func idiomApplies(in Inputs) (reason string, applies bool) {
+	for _, f := range in.Diff.SwiftFiles() {
+		if f.Status == "A" && strings.HasPrefix(f.Path, featureSources) {
+			return "", true
+		}
+		if f.IsTest() {
+			continue
+		}
+		for _, line := range f.Added {
+			if addsView.MatchString(line.Text) || addsObservable.MatchString(line.Text) {
+				return "", true
+			}
+		}
+	}
+	return "no view or model added — the diff adds no type conforming to View, no @Observable type, " +
+		"and no new file under " + featureSources, false
+}
+
 // idiom needs the diff and at least one exemplar to hold it against. The bug this
 // package exists for was a judge run without its standard: the checkout directory was
 // there, the Dart was not, and the gate passed.
@@ -146,6 +185,10 @@ func idiom(in Inputs) Result {
 	r := Result{Lane: Idiom}
 	if len(in.Diff.SwiftFiles()) == 0 {
 		r.Skipped = "no Swift changed"
+		return r
+	}
+	if reason, ok := idiomApplies(in); !ok {
+		r.Skipped = reason
 		return r
 	}
 	if strings.TrimSpace(in.Diff.Unified) == "" {

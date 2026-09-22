@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -146,6 +147,34 @@ func (p PullRequest) HasLabel(name string) bool {
 		}
 	}
 	return false
+}
+
+// SetExclusiveLabel puts one label from a family on the pull request and removes the
+// others. The review level is one value, not a set: a pull request carrying both
+// `review:pass` and `review:full` because an earlier push assigned the other tells a
+// reader nothing.
+//
+// A label that does not exist yet is created by the add, so nothing has to be
+// pre-registered on the repository.
+func (c *Client) SetExclusiveLabel(ctx context.Context, pr int, family []string, want string) error {
+	current, err := c.PullRequest(ctx, pr)
+	if err != nil {
+		return err
+	}
+	for _, name := range family {
+		if name == want || !current.HasLabel(name) {
+			continue
+		}
+		path := fmt.Sprintf("/repos/%s/issues/%d/labels/%s", c.Repo, pr, url.PathEscape(name))
+		if err := c.do(ctx, http.MethodDelete, path, nil, nil); err != nil {
+			return err
+		}
+	}
+	if current.HasLabel(want) {
+		return nil
+	}
+	payload, _ := json.Marshal(map[string][]string{"labels": {want}})
+	return c.do(ctx, http.MethodPost, fmt.Sprintf("/repos/%s/issues/%d/labels", c.Repo, pr), payload, nil)
 }
 
 func (c *Client) PullRequest(ctx context.Context, pr int) (PullRequest, error) {

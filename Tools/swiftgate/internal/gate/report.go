@@ -49,6 +49,12 @@ func (r *Result) Markdown(ctx ReportContext) string {
 		return b.String()
 	}
 
+	// The level comes first: it is the one line the reader acts on, and it says how
+	// much of the rest of this they need.
+	if r.Review.Level != "" {
+		fmt.Fprintf(&b, "%s\n\n", r.Review.Sentence())
+	}
+
 	d := r.Decision()
 	switch {
 	case ctx.Override != "" && d.Blocked:
@@ -56,7 +62,7 @@ func (r *Result) Markdown(ctx ReportContext) string {
 	case d.Blocked:
 		b.WriteString("**Blocked.** The scorer stops on enumerable conditions, and these fired:\n\n")
 	default:
-		b.WriteString("**Ready.** No static blocker, no lane blocked, every lane could evaluate.\n\n")
+		b.WriteString("**Ready.** No static blocker, and no blocking lane stopped this.\n\n")
 	}
 	for _, reason := range d.Reasons {
 		fmt.Fprintf(&b, "- %s\n", reason)
@@ -66,16 +72,31 @@ func (r *Result) Markdown(ctx ReportContext) string {
 	}
 
 	if len(r.Lanes) > 0 {
-		b.WriteString("| Lane | Verdict | |\n|---|---|---|\n")
+		b.WriteString("| Lane | Verdict | Blocks | |\n|---|---|---|---|\n")
+		advisory := false
 		for _, l := range r.Lanes {
 			if l.Skipped != "" {
-				fmt.Fprintf(&b, "| %s | skipped | %s |\n", l.Name, l.Skipped)
+				fmt.Fprintf(&b, "| %s | skipped | — | %s |\n", l.Name, l.Skipped)
 				continue
 			}
-			fmt.Fprintf(&b, "| %s | **%s** | %d finding(s) — see the `%s` comment |\n",
-				l.Name, l.Verdict, len(l.Findings), ctx.stamp(l.Name))
+			blocks := "no — advisory"
+			if l.Blocks {
+				blocks = "yes"
+			}
+			advisory = advisory || l.Advisory()
+			note := fmt.Sprintf("%d finding(s) — see the `%s` comment", len(l.Findings), ctx.stamp(l.Name))
+			if l.Unproven > 0 {
+				note += fmt.Sprintf("; %d dropped for want of a proof", l.Unproven)
+			}
+			fmt.Fprintf(&b, "| %s | **%s** | %s | %s |\n", l.Name, l.Verdict, blocks, note)
 		}
 		b.WriteString("\n")
+		if advisory {
+			b.WriteString("An advisory lane said **BLOCK** or could not evaluate, and the merge did not wait on it. " +
+				"A lane blocks once its record earns it: ≥10 judged pull requests, noise ≤30%, ≥1 finding the code " +
+				"answered — then `blocks: true` in `.github/swiftgate.yml`, by a reviewed pull request citing " +
+				"`swiftgate metrics` (ADR 0021). Read the lane's comment before merging anyway.\n\n")
+		}
 	}
 
 	if len(r.Findings) > 0 {
@@ -102,8 +123,12 @@ func (l Lane) Markdown(ctx ReportContext, reviewer string) string {
 		fmt.Fprintf(&b, "Skipped — %s\n", l.Skipped)
 		return b.String()
 	case l.Verdict == CannotEvaluate:
-		fmt.Fprintf(&b, "**CANNOT_EVALUATE.** The lane did not judge this change, and that blocks: "+
-			"an absent judgement is not a clean one.\n\n> %s\n\n", l.Reason)
+		stops := "and that blocks"
+		if !l.Blocks {
+			stops = "and this lane is advisory, so it stopped nothing"
+		}
+		fmt.Fprintf(&b, "**CANNOT_EVALUATE.** The lane did not judge this change, %s: "+
+			"an absent judgement is not a clean one.\n\n> %s\n\n", stops, l.Reason)
 	default:
 		blockers, warnings, nits := Counts(l.Findings)
 		fmt.Fprintf(&b, "**%s** · 🛑 %d blocking · ⚠️ %d warning · 💬 %d nit\n\n", l.Verdict, blockers, warnings, nits)
@@ -113,9 +138,19 @@ func (l Lane) Markdown(ctx ReportContext, reviewer string) string {
 		}
 	}
 
+	if l.Unproven > 0 {
+		fmt.Fprintf(&b, "%d finding(s) were dropped before this comment was written: the judge gave no proof — "+
+			"the input or state and the line where it fails, or the exemplar contradicted — and a finding without "+
+			"one is not reported (ADR 0021). They are counted in this lane's metrics record.\n\n", l.Unproven)
+	}
+
 	b.WriteString("---\n\n")
 	if reviewer != "" {
-		fmt.Fprintf(&b, "<sub>Judged by %s. Advisory: the readiness comment decides.</sub>\n", reviewer)
+		standing := "Advisory: this lane stops nothing until its record earns `blocks: true`"
+		if l.Blocks {
+			standing = "Blocking: this lane's BLOCK stops the merge"
+		}
+		fmt.Fprintf(&b, "<sub>Judged by %s. %s. The readiness comment decides.</sub>\n", reviewer, standing)
 	}
 	return b.String()
 }
@@ -130,6 +165,9 @@ func writeFindings(b *strings.Builder, ctx ReportContext, fs []Finding) {
 		b.WriteString("\n\n")
 		if f.Detail != "" {
 			fmt.Fprintf(b, "%s\n\n", f.Detail)
+		}
+		if f.Proof != "" {
+			fmt.Fprintf(b, "**Proof:** %s\n\n", f.Proof)
 		}
 		if f.Fix != "" {
 			fmt.Fprintf(b, "**Instead:** %s\n\n", f.Fix)
@@ -164,10 +202,16 @@ func (r *Result) Summary() string {
 	} else {
 		b.WriteString("**Ready.**\n\n")
 	}
+	if r.Review.Level != "" {
+		fmt.Fprintf(&b, "Read: **%s** — %s\n\n", r.Review.Level, strings.Join(r.Review.Reasons, "; "))
+	}
 	for _, l := range r.Lanes {
-		if l.Skipped != "" {
+		switch {
+		case l.Skipped != "":
 			fmt.Fprintf(&b, "- %s: skipped — %s\n", l.Name, l.Skipped)
-		} else {
+		case l.Advisory():
+			fmt.Fprintf(&b, "- %s: **%s** (advisory — stopped nothing), %d finding(s)\n", l.Name, l.Verdict, len(l.Findings))
+		default:
 			fmt.Fprintf(&b, "- %s: **%s**, %d finding(s)\n", l.Name, l.Verdict, len(l.Findings))
 		}
 	}

@@ -5,7 +5,12 @@ import (
 	"testing"
 )
 
-func lane(name string, v Verdict) Lane { return Lane{Name: name, Verdict: v, Reason: "r"} }
+// lane is a lane the config has granted: its verdict can stop a merge.
+func lane(name string, v Verdict) Lane { return Lane{Name: name, Verdict: v, Reason: "r", Blocks: true} }
+
+// advisory is a lane as every lane starts (ADR 0021): judged, reported and recorded,
+// and unable to stop anything.
+func advisory(name string, v Verdict) Lane { return Lane{Name: name, Verdict: v, Reason: "r"} }
 
 // The blocking table, row by row. Every combination that stops a merge is here, and
 // every one that must not.
@@ -32,6 +37,15 @@ func TestScoreTruthTable(t *testing.T) {
 		{"skipped lane with a stale verdict still never scores", nil, []Lane{{Name: "spec", Verdict: Block, Skipped: "n/a"}}, false, ""},
 		{"static warning beside a lane pass", staticWarning, []Lane{lane("idiom", Pass)}, false, ""},
 		{"every reason is listed", staticBlocker, []Lane{lane("idiom", Block), lane("spec", CannotEvaluate)}, true, "lane spec"},
+
+		// ADR 0021. A lane starts advisory and earns blocking on its record; until it
+		// does, the worst it can say is reported and recorded, and the merge does not
+		// wait on it. The static rules are unaffected — they are the deterministic
+		// blocking layer, and no grant is involved.
+		{"an advisory lane's BLOCK stops nothing", nil, []Lane{advisory("idiom", Block)}, false, ""},
+		{"an advisory lane that cannot evaluate stops nothing", nil, []Lane{advisory("idiom", CannotEvaluate)}, false, ""},
+		{"a static blocker still blocks beside an advisory lane", staticBlocker, []Lane{advisory("idiom", Block)}, true, "1 static blocker(s)"},
+		{"a granted lane blocks beside an advisory one", nil, []Lane{advisory("idiom", Block), lane("spec", Block)}, true, "lane spec: BLOCK"},
 	}
 	for _, c := range cases {
 		d := Score(c.static, c.lanes)
@@ -91,7 +105,9 @@ func TestVerdictFromFindings(t *testing.T) {
 func TestNormaliseKeepsStaticOverLaneOnTheSameLine(t *testing.T) {
 	r := Result{
 		Findings: []Finding{{Rule: "a/b", File: "A.swift", Line: 3, Severity: Warning, Source: FromStatic}, {Rule: "z/off", Severity: Off}},
-		Lanes: []Lane{{Name: "idiom", Findings: []Finding{
+		// Granted, so "nothing blocks" below is about the dropped duplicate and not
+		// about the lane being advisory.
+		Lanes: []Lane{{Name: "idiom", Blocks: true, Findings: []Finding{
 			{Rule: "a/b", File: "A.swift", Line: 3, Severity: Blocker, Source: FromAgent},
 			{Rule: "c/d", File: "A.swift", Line: 1, Severity: Nit},
 			{Rule: "c/d", File: "A.swift", Line: 1, Severity: Nit},

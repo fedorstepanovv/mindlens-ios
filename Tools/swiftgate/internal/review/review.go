@@ -49,7 +49,7 @@ const Schema = `{
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["rule", "severity", "file", "title", "detail", "fix"],
+        "required": ["rule", "severity", "file", "title", "detail", "proof", "fix"],
         "properties": {
           "rule": {"type": "string", "description": "stable kebab-case category/name"},
           "severity": {"type": "string", "enum": ["blocker", "warning", "nit"]},
@@ -57,6 +57,7 @@ const Schema = `{
           "line": {"type": "integer", "description": "1-indexed; omit for a whole-file finding"},
           "title": {"type": "string"},
           "detail": {"type": "string"},
+          "proof": {"type": "string", "minLength": 1, "description": "Why this is true and not a guess: the concrete input or state and the line where it fails, or the exemplar it contradicts. A finding without one is dropped and never reported."},
           "fix": {"type": "string"},
           "doc": {"type": "string", "description": "the project document that says so"}
         }
@@ -78,11 +79,14 @@ type Meta struct {
 // State is what `prepare` hands to `decide`, so the second half does not have to
 // recompute the diff or re-read the pull request.
 type State struct {
-	Meta    Meta     `json:"meta"`
-	Base    string   `json:"base"`
-	Head    string   `json:"head"`
-	Files   []string `json:"files"`
-	Skipped string   `json:"skipped,omitempty"`
+	Meta  Meta     `json:"meta"`
+	Base  string   `json:"base"`
+	Head  string   `json:"head"`
+	Files []string `json:"files"`
+	// Changed is the changed-line count the review level is assigned from, counted the
+	// way Tools/check-pr-conventions.sh counts it.
+	Changed int    `json:"changed"`
+	Skipped string `json:"skipped,omitempty"`
 	// Reviewed records whether a reviewer was expected to run at all.
 	Reviewed bool `json:"reviewed"`
 	// Evidence is every lane's gate result, read off disk by `prepare` before any
@@ -162,6 +166,9 @@ func brief(d scan.Diff, meta Meta, static []gate.Finding, exemplars []scan.Exemp
 	}
 
 	fmt.Fprintf(&b, "\n## Diff\n\n```diff\n%s\n```\n", d.Unified)
+	b.WriteString("\nEvery finding needs a `proof`: the concrete input or state and the line where it fails, " +
+		"or the exemplar it contradicts. A finding without one is dropped before anyone reads it, so it is " +
+		"work you did for nothing — leave it out instead.\n")
 	b.WriteString("\nReturn your verdict as the structured output and stop. Write no file, post no comment.\n")
 
 	return b.String()
@@ -188,8 +195,21 @@ type rawFinding struct {
 	Line     int    `json:"line"`
 	Title    string `json:"title"`
 	Detail   string `json:"detail"`
+	Proof    string `json:"proof"`
 	Fix      string `json:"fix"`
 	Doc      string `json:"doc"`
+}
+
+// Judgement is what one judge returned, with the contract applied to it.
+type Judgement struct {
+	Verdict  gate.Verdict
+	Summary  string
+	Findings []gate.Finding
+	// Unproven is how many findings were dropped for want of a proof. Counted rather
+	// than discarded quietly: Anthropic's substantive-comment rate went from 16% to
+	// 54% by requiring a proof, and the count is how this repository sees whether a
+	// lane is mostly writing things it cannot support (ADR 0021).
+	Unproven int
 }
 
 // Ingest reads a judge's structured output.
@@ -197,23 +217,26 @@ type rawFinding struct {
 // A missing file is an error, not a clean review: if the judge did not run, the gate has
 // no basis for a verdict. So is a verdict outside the contract — the schema should have
 // stopped it, and a harness that trusted the schema alone would pass a lane on a typo.
-func Ingest(path string) (verdict gate.Verdict, summary string, findings []gate.Finding, err error) {
+// The same argument applies to the proof: the schema requires it, and this drops any
+// finding that arrives without one rather than trusting that it could not.
+func Ingest(path string) (Judgement, error) {
+	var j Judgement
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", "", nil, err
+		return j, err
 	}
 	if len(bytes.TrimSpace(data)) == 0 {
-		return "", "", nil, fmt.Errorf("%s is empty — the judge produced no structured output", filepath.Base(path))
+		return j, fmt.Errorf("%s is empty — the judge produced no structured output", filepath.Base(path))
 	}
 
 	// A fenced block is tolerated: the contract is the JSON, not the bytes around it.
 	var report Report
 	if err := json.Unmarshal(unfence(data), &report); err != nil {
-		return "", "", nil, fmt.Errorf("the judge's output is not valid JSON: %w", err)
+		return j, fmt.Errorf("the judge's output is not valid JSON: %w", err)
 	}
 	verdict, ok := gate.ParseVerdict(report.Verdict)
 	if !ok {
-		return "", "", nil, fmt.Errorf("the judge's verdict %q is not PASS, CONCERNS or BLOCK", report.Verdict)
+		return j, fmt.Errorf("the judge's verdict %q is not PASS, CONCERNS or BLOCK", report.Verdict)
 	}
 
 	for _, f := range report.Findings {
@@ -225,21 +248,28 @@ func Ingest(path string) (verdict gate.Verdict, summary string, findings []gate.
 		}
 		severity, ok := gate.ParseSeverity(f.Severity)
 		if !ok {
-			return "", "", nil, fmt.Errorf("the judge's severity %q is not blocker, warning or nit", f.Severity)
+			return Judgement{}, fmt.Errorf("the judge's severity %q is not blocker, warning or nit", f.Severity)
 		}
-		findings = append(findings, gate.Finding{
+		proof := strings.TrimSpace(f.Proof)
+		if proof == "" {
+			j.Unproven++
+			continue
+		}
+		j.Findings = append(j.Findings, gate.Finding{
 			Rule:     NormaliseRule(f.Rule),
 			Severity: severity,
 			File:     path,
 			Line:     f.Line,
 			Title:    strings.TrimSpace(f.Title),
 			Detail:   strings.TrimSpace(f.Detail),
+			Proof:    proof,
 			Fix:      strings.TrimSpace(f.Fix),
 			Doc:      strings.TrimSpace(f.Doc),
 			Source:   gate.FromAgent,
 		})
 	}
-	return verdict, strings.TrimSpace(report.Summary), findings, nil
+	j.Verdict, j.Summary = verdict, strings.TrimSpace(report.Summary)
+	return j, nil
 }
 
 var fence = regexp.MustCompile("(?s)^\\s*```(?:json)?\\s*(.*?)\\s*```\\s*$")
@@ -270,8 +300,12 @@ func NormaliseRule(s string) string {
 // checks is the contract: no evidence, no run, and no valid file each become
 // CANNOT_EVALUATE before anything the judge said is read. Only after all three hold
 // does the judge's own output stand.
-func Lane(ev evidence.Result, judgeRan bool, findingsPath string) gate.Lane {
-	lane := gate.Lane{Name: string(ev.Lane)}
+//
+// blocks says whether this lane's verdict can stop the merge on this run. It changes
+// nothing here — every lane is evaluated and reported the same way — and is carried so
+// the scorer and the report can say which verdicts were advisory.
+func Lane(ev evidence.Result, judgeRan, blocks bool, findingsPath string) gate.Lane {
+	lane := gate.Lane{Name: string(ev.Lane), Blocks: blocks}
 	cannot := func(cause gate.Cause, reason string) gate.Lane {
 		lane.Verdict, lane.Cause, lane.Reason = gate.CannotEvaluate, cause, reason
 		return lane
@@ -286,11 +320,16 @@ func Lane(ev evidence.Result, judgeRan bool, findingsPath string) gate.Lane {
 		return cannot(gate.CauseJudge, "the judge step did not run to completion. Re-run the failed job; if it keeps "+
 			"failing, check the CLAUDE_CODE_OAUTH_TOKEN secret and the subscription's rate limit.")
 	}
-	verdict, summary, findings, err := Ingest(findingsPath)
+	j, err := Ingest(findingsPath)
 	if err != nil {
 		return cannot(gate.CauseOutput, "the judge returned nothing the harness can read: "+err.Error())
 	}
-	lane.Verdict, lane.Reason, lane.Findings = gate.Worse(verdict, gate.VerdictFromFindings(findings)), summary, findings
+	// The judge's own verdict stands even when every finding behind it was dropped for
+	// want of a proof: that reads as "BLOCK, 0 findings, 2 unproven", which is the
+	// truth about the judge and the number the kill rule is measured on. Quietly
+	// downgrading it to PASS would hide exactly the lane worth cutting.
+	lane.Verdict = gate.Worse(j.Verdict, gate.VerdictFromFindings(j.Findings))
+	lane.Reason, lane.Findings, lane.Unproven = j.Summary, j.Findings, j.Unproven
 	return lane
 }
 

@@ -94,6 +94,12 @@ type Finding struct {
 	Detail string `json:"detail"`
 	// Fix says what to write instead. Concrete, not "consider refactoring".
 	Fix string `json:"fix"`
+	// Proof is why the finding is true and not a guess: the concrete input or state
+	// and the line where it fails, or the exemplar contradicted. Required of every
+	// lane finding — one without a proof is dropped before it is reported (ADR 0021).
+	// Static findings carry the rule that fired and the line it matched, so the rule
+	// id is their proof and this stays empty.
+	Proof string `json:"proof,omitempty"`
 	// Doc cites the rule's source of authority, e.g. "docs/PATTERNS.md § ViewModels".
 	Doc    string `json:"doc,omitempty"`
 	Source Source `json:"-"`
@@ -121,6 +127,9 @@ type Result struct {
 	// Override, when non-empty, is the reason a human gave for merging past a
 	// blocker. Recorded in the report; it does not hide the findings.
 	Override string
+	// Review is how much of this pull request a human reads before merging, and why
+	// (ADR 0017). It is advice about reading and changes no decision.
+	Review Review
 }
 
 // Add merges static findings in.
@@ -137,7 +146,14 @@ func (r *Result) Passed() bool { return !r.Blocked() || r.Override != "" }
 
 // All returns every finding, static first, for the outputs that want one list.
 func (r *Result) All() []Finding {
-	out := append([]Finding(nil), r.Findings...)
+	return append(append([]Finding(nil), r.Findings...), r.LaneFindings()...)
+}
+
+// LaneFindings returns what the judges found, without the deterministic pass. The
+// review level asks about these alone: a static blocker has already stopped the merge,
+// so it is not a question of how much to read.
+func (r *Result) LaneFindings() []Finding {
+	var out []Finding
 	for _, l := range r.Lanes {
 		out = append(out, l.Findings...)
 	}
