@@ -6,7 +6,9 @@ import (
 )
 
 // lane is a lane the config has granted: its verdict can stop a merge.
-func lane(name string, v Verdict) Lane { return Lane{Name: name, Verdict: v, Reason: "r", Blocks: true} }
+func lane(name string, v Verdict) Lane {
+	return Lane{Name: name, Verdict: v, Reason: "r", Blocks: true}
+}
 
 // advisory is a lane as every lane starts (ADR 0021): judged, reported and recorded,
 // and unable to stop anything.
