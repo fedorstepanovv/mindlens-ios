@@ -60,8 +60,7 @@ unit for parallel sessions (Claude Code docs; Shopify 2026-09-10).
 **This repository.** Sessions commit, push and open pull requests; a human merges, always, with
 a merge commit. One branch per initiative, `<kind>/<slug>`, in its own worktree; pull requests
 capped at 1,000 changed lines and 10 commits nobody has seen, each cap with a recorded override
-(ADR 0013, 0015; the caps sit at 4,000 and 25 until the gate branch lands them). No agent
-trailer on any commit — Fedir is the sole author.
+(ADR 0013, 0015). No agent trailer on any commit — Fedir is the sole author.
 
 **Why.** A branch reached twenty commits with no pull request and re-diverged from `main` within
 two hours of merging it (`docs/LESSONS.md`). ADR 0006 claimed the gate was "wired to branch
@@ -84,8 +83,8 @@ that alone decides (ADR 0014). Every run leaves a record and every merge classif
 `changed`, `resolved`, `waived` or `untouched`; noise is `untouched ÷ classified` (ADR 0016).
 Lanes are advisory until a reviewed pull request grants `blocks: true` on ≥10 judged pull
 requests, noise ≤30% and ≥1 finding `changed`; a lane at >50% noise and 0 `changed` after 10 runs
-is killed the same way; every finding carries a proof or is not reported (ADR 0021 — the
-mechanism lands with the gate branch).
+is killed the same way; every finding carries a proof or is not reported (ADR 0021). No lane has
+judged a real diff yet, so every cost and noise field below is empty.
 
 **Why.** The first reviewer "succeeded" on an empty Flutter checkout and the gate reported
 *Passed*: a judge that could not look was scored as a judge that found nothing. The evidence
@@ -105,8 +104,8 @@ objective criteria — under 1,000 lines, no migrations, infrastructure, auth or
 (≤200 lines, no risk path, no new ADR, dependency or entitlement: merge on the gate's word),
 *brief* (the gate's comment and the body), *full* (the diff: any risk path, any lane finding at
 warning or above with a proof, or an oversized pull request). The risk class is a path list in
-`.github/swiftgate.yml` (ADR 0017; lands with the gate branch — every pull request is *full*
-until then).
+`.github/swiftgate.yml`, and the size cap it cites is the one `Tools/check-pr-conventions.sh`
+enforces (ADR 0017).
 
 **Why.** One reviewer, and every product pull request session-written. Reading every diff is the
 bottleneck; reading none is the incident.
@@ -311,9 +310,9 @@ cleanup candidate.
 
 ### How a pull request flows
 
-1. **Before a commit exists.** A session start — or, by hand, `git config core.hooksPath
-   Tools/githooks` — installs the hooks. `pre-commit` refuses a commit on `main`, a branch not
-   named `feature|bugfix|hotfix|docs/…`, a branch with 25 commits in no pull request, and a
+1. **Before a commit exists.** `Tools/setup.sh` — run once per clone, and called by a session
+   start — installs the hooks. `pre-commit` refuses a commit on `main`, a branch not
+   named `feature|bugfix|hotfix|docs/…`, a branch with 10 commits in no pull request, and a
    commit onto a pushed branch another open pull request already contains unless an override
    reason is given; `prepare-commit-msg` writes that reason into the commit as an `Override:`
    trailer; `pre-push` refuses `main` and any non-fast-forward.
@@ -355,7 +354,7 @@ cleanup candidate.
 
 | Component | Layer | Purpose | Incident or ADR | Measurement |
 |---|---|---|---|---|
-| `Tools/githooks/pre-commit` | git | Refuse a commit on `main`, a mis-named branch, 25 commits in no pull request, a commit into another open pull request without a reason | `base-setup` at twenty commits; the cap silently off under bash 3.2 `set -u`; ADR 0013, 0015 | `Override:` trailers in `git log` |
+| `Tools/githooks/pre-commit` | git | Refuse a commit on `main`, a mis-named branch, 10 commits in no pull request, a commit into another open pull request without a reason | `base-setup` at twenty commits; the cap silently off under bash 3.2 `set -u`; ADR 0013, 0015 | `Override:` trailers in `git log` |
 | `Tools/githooks/prepare-commit-msg` | git | Write the override reason into the commit | An escape hatch whose only record was the terminal | Same |
 | `Tools/githooks/pre-push` | git | Refuse `main` and any non-fast-forward | ADR 0006 claimed protection that was a 403 | none |
 | `.claude/skills/pr/SKILL.md` | skill | Open, diagnose, land; refuse a red gate without a written override; merge commit only | PR #1 landed on a false "protected" claim; ADR 0013 | none |
