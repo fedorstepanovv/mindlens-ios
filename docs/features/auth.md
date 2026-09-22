@@ -9,7 +9,7 @@ sign-up and sign-in. A new account keeps its answers; a returning one skips post
 Stay signed in across launches, and sign out.
 
 **Done when:** a new account's survey answers reach the server and it lands past onboarding; a
-real sign-in survives a relaunch and a 15-minute token expiry; the two auth fixtures are live captures.
+real sign-in survives a relaunch and a 15-minute token expiry.
 
 ## Behaviour
 
@@ -78,8 +78,9 @@ bare pair, single-use. `POST /auth/logout` → 204.
 - [ ] A real Apple and Google sign-in each land signed in; relaunch restores without the survey.
 - [ ] A session older than 15 minutes refreshes once on relaunch without signing out. Observed live.
 - [ ] Concurrent 401s make exactly one `/auth/refresh` (a staggered test).
-- [ ] The `/auth/apple` and `/auth/refresh` 200s are redacted live captures that the decoding tests read.
-- [ ] No `swiftgate:allow` names a rule that no longer exists; Keychain paths run under a `Persistence` test target.
+- [x] The `/auth/apple` and `/auth/refresh` 200s are one cross-checked constructed body each, read by every test (ADR 0024).
+- [x] No `swiftgate:allow` names a rule that no longer exists.
+- [ ] Keychain paths run under a `Persistence` test target.
 
 ## Decisions — settled, do not reopen
 
@@ -110,16 +111,7 @@ bare pair, single-use. `POST /auth/logout` → 204.
 2. ✅ `APIAuthRepository`, `AuthTokenRefreshTransport`, `KeychainDeviceIdentity`; 79 tests; gate launches the app.
 3. ✅ Firebase Auth (app target only) and Sign in with Apple, run for real; entitlement and team asserted by the gate.
 4. ✅ Google Sign-In through the same seam, run for real; the redirect scheme asserted against the bundled plist.
-5. ⬜ **Capture the two auth fixtures and drop the waiver** — save the `/auth/apple` 200 and a
-   `/auth/refresh` 200 during a real sign-in, point the decoding tests at them, delete the
-   inline bodies. Both are one-shot from the client (the refresh token rotates), so capture them
-   off the app's own traffic through a proxy — never `curl /auth/refresh` beside a live session.
-   entries: the waiver in `Packages/MindlensKit/Sources/Networking/AuthEndpoints.swift` and the dead one
-   in `Packages/MindlensKit/Sources/Core/DateProvider.swift` · `AuthResponseDecodingTests` and the
-   inline bodies in `APIAuthRepositoryTests` and `AuthTokenRefreshTransportTests` ·
-   `Tools/capture-fixtures.sh` (which cannot script these two).
-   files: `Packages/MindlensKit/Sources/TestSupport/Fixtures/`, `Packages/MindlensKit/Tests/NetworkingTests/AuthContractTests.swift`
-   ready: no `swiftgate:allow` names a missing rule; the fixtures README lists both as live and redacted.
+5. ✅ The two auth responses are cross-checked, not captured (ADR 0024): one `ConstructedResponse` feeds every test; dead waivers gone.
 6. ⬜ `Persistence` test target for the Keychain paths, which have run for real but never under a test.
 7. ⬜ **The survey** — pages 0–3 ahead of `SignInView` and a new account's answers posted after
    sign-in, per Behaviour. Shaped in full when it opens.
@@ -148,3 +140,5 @@ bare pair, single-use. `POST /auth/logout` → 204.
 - 2026-09-19 — `Tools/check-build-settings.sh` asserts the bundled plist's `REVERSED_CLIENT_ID` is a declared
   URL scheme in the built Info.plist; shown red before the scheme exists. The value is still pasted by hand.
 - 2026-09-19 — First real Google sign-in landed on the signed-in stub. Step 4 ticked.
+- 2026-09-22 — Behaviour approved; the survey joins auth. The proxy capture failed (the simulator refused mitmproxy's CA), so
+  step 5 cross-checks the two auth bodies against Prisma and the source app's production models instead (ADR 0024).

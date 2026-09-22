@@ -14,7 +14,8 @@ A feature is not done without these:
 
 1. **Every ViewModel** — loading, success, failure, empty.
 2. **Every API response type, against a real captured fixture.** There is no OpenAPI spec.
-   These are the only contract guard. Refresh them with `Tools/capture-fixtures.sh`.
+   These are the only contract guard. Refresh them with `Tools/capture-fixtures.sh`. The two auth
+   responses nobody can capture are constructed and cross-checked instead (`ConstructedResponse`, ADR 0024).
 3. **The token refresher, under concurrency** — and not just the easy case. See below.
 4. **Date and timezone logic** — local-day boundaries, a user whose timezone differs from
    the device's, DST transitions.
