@@ -2,14 +2,10 @@
 
 **What is true right now. Nothing else.**
 
-This file is **rewritten in place, never appended to.** When something stops being
-current it moves to `CHANGELOG.md`. History does not live here — that is how the
-equivalent file in the server repo reached 2,000 lines and stopped being readable.
+**Rewritten in place, never appended to** — what stops being current moves to `CHANGELOG.md`; the server repo's
+equivalent reached 2,000 lines. **Hard cap: 80 lines**, enforced by `Tools/check-doc-links.py`: adding a line means removing one.
 
-**Hard cap: 80 lines**, enforced by `Tools/check-doc-links.py`. If you are adding a line,
-consider which one you are removing.
-
-Last updated: 2026-09-21
+Last updated: 2026-09-22
 
 ---
 
@@ -29,17 +25,20 @@ launch (ADR 0010, `docs/features/auth.md`). Every sign-in is a real production a
 
 Nothing reaches `main` except a PR through the gate — test, build, launch, settings + team + entitlement (Debug
 only), lint, doc links, `Tools/swiftgate` static rules and three judge lanes (verification, idiom held to exemplars from
-this repo, spec) behind evidence gates and a deterministic scorer, branch name, ADR numbers, size (ADR 0006, 0012–0015). Every run records one metrics line per lane and every merge classifies its findings; `swiftgate metrics` sums them (ADR 0016). **No lane has judged a real diff yet**, so the cost fields are a guess until one does. `main` is unprotected on this plan; `Tools/githooks` refuse the push.
+this repo, spec) behind evidence gates and a deterministic scorer, branch name, ADR numbers, size (ADR 0006, 0012–0015). Every run records one metrics line per lane and every merge classifies its findings; `swiftgate metrics` sums them (ADR 0016). **No lane has judged a real diff yet**, so the cost fields are a guess until one does. **The lanes still block** — a `BLOCK` or `CANNOT_EVALUATE` fails the gate — until `feature/gate-advisory` lands ADR 0021's `blocks:` flag, the proof field, the review level (ADR 0017) and the 1,000-line / 10-commit caps; the caps sit at 4,000 / 25 until then. `main` is unprotected on this plan; `Tools/githooks` refuse the push.
+
+The pipeline is written down: `README.md` is the artifact — stages and owners (ADR 0019), the decisions by area against
+September 2026 practice (ADR 0017–0023), an empty evidence section — and `AGENTS.md` is the canonical instruction file,
+`CLAUDE.md` its import. The feature template has a human-approved `## Behaviour` section (ADR 0020); `docs/features/auth.md` gets its own when step 5 opens.
 
 ## Next action
 
-`feature/auth` for `docs/features/auth.md` step 5: capture the `/auth/apple` and `/auth/refresh` 200s off a
-proxied real sign-in, point the decoding tests at them, drop the waiver in `AuthEndpoints.swift`. Beside it, a
-`bugfix/` branch for the reviewer's two warnings on PR #1: cancellation at the `APIClient` boundary, and `RootView`'s placeholder copy.
-
-## Blocked on
-
-Nothing.
+`feature/gate-advisory` — the gate branch: lanes advisory with the grant and kill rules (ADR 0021), `proof` required
+per finding, the review level and risk class (ADR 0017), the caps, a `setup.sh` in `Tools/`, the idiom trigger, a model
+per lane, skipped runs recorded. Then the load: `feature/auth` for `docs/features/auth.md` step 5 — write its
+`## Behaviour`, capture the `/auth/apple` and `/auth/refresh` 200s off a proxied real sign-in, point the decoding tests
+at them, drop the dead waivers — is the first product PR the lanes judge. PR #1's two reviewer warnings (cancellation at
+the `APIClient` boundary, `RootView`'s placeholder copy) wait for a `bugfix/` branch after it. Blocked on nothing.
 
 ## Stages
 
@@ -52,26 +51,27 @@ Nothing.
 
 Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 
+**The pipeline is done when** (`README.md` §4): twenty product PRs through the gate; every lane with a measured noise
+rate; one lane granted, refused or killed on data; one defect the gate caught that a full read would have missed,
+documented; behaviour-first intake on three features. After `feature/gate-advisory`, the gate changes only when the load says.
+
 ## Known gaps
 
-- **No captured fixture for `/auth/apple` or `/auth/refresh` 200** — neither is scriptable, so
-  decoding runs against inline bodies labelled as constructed; a dead `swiftgate:allow` comment in
-  `AuthEndpoints.swift` names a rule that is gone. Capture both off a proxied real sign-in (`auth.md` step 5).
+- **No captured fixture for `/auth/apple` or `/auth/refresh` 200** — neither is scriptable, so decoding runs against
+  inline bodies labelled as constructed; dead `swiftgate:allow` comments in `AuthEndpoints.swift` and `DateProvider.swift`
+  name rules that are gone. Capture both off a proxied real sign-in (`auth.md` step 5).
 - **The live refresh has never been observed** (restore only ran inside the 15-minute window), and
   **`Persistence` has no test target** — so the verification lane blocks any PR touching it until `auth.md` step 6.
 - **Sign-out leaves the Firebase user signed in** — the seam has no sign-out. Fine until account deletion.
-- **A transient restore failure parks in `restoring` with a retry**, correct only because no user
-  row is cached; **the local store is not observable** either. SwiftData, the outbox, ADR 0003's gate: Stage 2.
-- No `PrivacyInfo.xcprivacy` or usage descriptions; HealthKit beside analytics needs a documented
-  data boundary (Guideline 5.1.3). All required before submission.
-- No brand colour or app icon — `AccentColor` is empty, so the app tints system blue. Analytics
-  records events only. The Google button is unbranded but paired to Apple's per the HIG.
+- **A transient restore failure parks in `restoring` with a retry**, correct only because no user row is cached;
+  **the local store is not observable** either. SwiftData, the outbox, ADR 0003's gate: Stage 2.
+- No `PrivacyInfo.xcprivacy`, usage descriptions, or a HealthKit data boundary (Guideline 5.1.3) — all before submission.
+- No brand colour or app icon — `AccentColor` is empty, so the app tints system blue. Analytics records events only.
 
 ## Deliberately not doing
 
 - **No feature parity with Flutter.** Health sync, Events, Tags, Reminders, Settings are out of scope; add only by decision.
-- **No App Intents, Control, or widgets in v1** — ADR 0008.
-- **No API versioning shim** — the backend has none.
+- **No App Intents, Control, or widgets in v1** (ADR 0008); **no API versioning shim** — the backend has none.
 
 ## Open questions
 

@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 # Backticked strings are only treated as paths when they start with one of these.
-PATH_PREFIXES = ("docs/", "Packages/", "Tools/", ".claude/", "mindlens/", "../")
+PATH_PREFIXES = ("docs/", "Packages/", "Tools/", ".claude/", ".agents/", ".github/", "mindlens/", "../")
 MD_LINK = re.compile(r"\[[^\]]*\]\(([^)#]+?)(?:#[^)]*)?\)")
 BACKTICKED = re.compile(r"`([^`\n]+)`")
 
@@ -62,11 +62,15 @@ def inside_repo(path: Path) -> tuple[str, ...]:
 SIZE_CAPS = {
     "docs/STATE.md": 80,
     "docs/LESSONS.md": 40,
-    "CLAUDE.md": 150,
-    # One per feature: capability, settled decisions, the next few steps, a short journal.
-    # The journal is append-only, so the cap is what forces its oldest lines out to git log
-    # instead of letting the file become the history it is meant to point at.
-    "docs/features/*.md": 100,
+    # The always-on instruction file. Every vendor's guidance lands near 200 lines; past that
+    # the file is read less, not more (ADR 0022). CLAUDE.md is an import of it plus a few
+    # Claude-only lines, so its cap is what those lines need and no more.
+    "AGENTS.md": 200,
+    "CLAUDE.md": 40,
+    # One per feature: capability, behaviour, settled decisions, the next few steps, a short
+    # journal. The journal is append-only, so the cap is what forces its oldest lines out to
+    # git log instead of letting the file become the history it is meant to point at.
+    "docs/features/*.md": 150,
 }
 
 # Every document has exactly one home. A second copy is not a backup — it is a second
@@ -83,6 +87,7 @@ CANONICAL_HOME = {
     "API.md": "docs",
     "CHANGELOG.md": ".",
     "CLAUDE.md": ".",
+    "AGENTS.md": ".",
 }
 
 
@@ -93,11 +98,12 @@ def check_sizes() -> list[str]:
             rel = path.relative_to(ROOT).as_posix()
             lines = len(path.read_text(encoding="utf-8").splitlines())
             if lines > cap:
-                advice = (
-                    "Drop the oldest journal lines — they are in git log — or shrink done steps to one line."
-                    if rel.startswith("docs/features/")
-                    else "Move what is no longer current to CHANGELOG.md, or prune."
-                )
+                if rel.startswith("docs/features/"):
+                    advice = "Drop the oldest journal lines — they are in git log — or shrink done steps to one line."
+                elif rel in ("AGENTS.md", "CLAUDE.md"):
+                    advice = "Move a procedure to a skill, a fact about one area to its docs/ file, or cut it."
+                else:
+                    advice = "Move what is no longer current to CHANGELOG.md, or prune."
                 problems.append(f"{rel} is {lines} lines, cap is {cap}. {advice}")
     return problems
 

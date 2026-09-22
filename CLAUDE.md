@@ -1,150 +1,21 @@
-# Mindlens iOS — Agent Guide
+@AGENTS.md
 
-Native iOS rewrite of the Mindlens mood-tracking app. SwiftUI · Swift 6 · SPM · MVVM.
+## Claude Code only
 
-## Read this much, and no more
+Everything above binds every agent and every person. What follows exists only under Claude Code
+and transfers nowhere (ADR 0018) — it is convenience, never the enforcement layer.
 
-**Always, before anything else — two files, ~100 lines total:**
-
-1. `docs/STATE.md` — what is true right now. Bounded to 80 lines.
-2. `docs/LESSONS.md` — mistakes already made here. Bounded to 40 lines.
-
-**Then only what your task touches:**
-
-| If you are… | Read |
-|---|---|
-| Working on a feature | `docs/features/<name>.md` — its decisions, next step and journal |
-| Writing any Swift | `docs/PATTERNS.md` |
-| Adding a target, module, or dependency | `docs/ARCHITECTURE.md` + ADR 0002 |
-| Building or changing any UI | `docs/DESIGN.md` |
-| Writing or changing tests | `docs/TESTING.md` |
-| Touching the network layer or a model | `docs/API.md` |
-| About to make a choice someone could question | `ls docs/decisions/` — check it isn't settled; re-list it right before adding an ADR, numbers have collided |
-| Looking for when or why something changed | `CHANGELOG.md`, then `git log` |
-| Opening, checking, or landing a pull request | `/pr` — the checklist is `.claude/skills/pr/SKILL.md` |
-
-**Do not read the whole `docs/` tree to start work.** It is reference, not a briefing; it costs context the task needs, and the routing above exists so you don't have to.
-
----
-
-## The one rule that matters most
-
-The Flutter app at `../app/mindlensapp` is a **product spec, not an implementation
-reference**. Read it to learn *what* a screen does, how a flow sequences, what the copy
-says, what the API returns. Then close it and write idiomatic native iOS from first
-principles.
-
-Never port: `get_it` service location, Cubit/Bloc state machines, freezed sealed-union
-state, mechanical repository→service→cubit layering, `go_router` global redirects,
-barrel exports, `*Impl` type names, JSON codegen, or third-party widgets that replace
-components UIKit/SwiftUI already ship.
-
-Never imitate its UI. Flutter approximates iOS because it must. We *are* iOS.
-
-## Architecture rules (enforced by the compiler)
-
-- `Features/*` targets **may not import each other**. Cross-feature navigation goes
-  through the app target via typed destinations. SPM enforces this — do not work around it.
-- Features depend only on `Core`, `Models`, `Networking`, `Persistence`, `DesignSystem`,
-  `Analytics`.
-- The app target is thin: entry point, root scene, router, and the DI composition root.
-  No business logic lives there.
-- Dependencies are **constructor-injected**. There is no global container, no singleton
-  registry, no `.shared` outside of Apple's own types.
-- Every external service (analytics, purchases, push, crash reporting) sits behind a
-  protocol defined in our code. SDK types never appear in feature code.
-
-## MVVM, applied honestly
-
-A `@Observable @MainActor` ViewModel exists where there is real presentation state to coordinate.
-A view with no presentation logic binds directly to its model — **do not manufacture a ViewModel
-for every screen.** ViewModel-per-screen is a Cubit-per-screen habit and it reads as translated Flutter.
-
-## Concurrency
-
-Swift 6 language mode, strict concurrency on. `async/await` is the default. Actors for shared mutable
-state. Combine only where it is genuinely the right tool — debounced input, `NotificationCenter` streams,
-multi-source merges — and never as the default way to move data between layers.
-
-## Design
-
-Native components, always. `.sheet` + `.presentationDetents`, `List`/`Form`,
-`ContentUnavailableView`, `.redacted(reason: .placeholder)`, SF Symbols, Swift Charts,
-system materials and semantic colors.
-
-Non-negotiable: **Dynamic Type throughout** (no fixed point sizes), VoiceOver labels on
-every interactive element, light and dark both correct. Rules: `docs/DESIGN.md`.
-
-## Testing
-
-Swift Testing (`@Test`/`#expect`) for units; XCTest only where XCUITest requires it. Required before a feature is done:
-- Every ViewModel has tests.
-- Every API response type has a decoding test against a real captured JSON fixture.
-  There is no OpenAPI spec — these fixtures are the only contract guard we have.
-- Every bug fix ships with a regression test named for the bug.
-
-No test touches the network. Fakes live in `TestSupport`. Details: `docs/TESTING.md`.
-
-## Backend
-
-NestJS API, no versioning, no `/api` prefix, **no OpenAPI spec** — `docs/API.md` is the
-only written contract. Keep it current or it becomes a lie.
-
-Two things that will silently break if you forget them:
-- Every response is enveloped: `{data, statusCode, success, timestamp}`. Errors:
-  `{data: null, success: false, error, timestamp}`.
-- Refresh tokens are **single-use and rotating**, access tokens last 15 minutes.
-  Concurrent 401s must be single-flighted through the refresh actor or users get
-  logged out. This is a real incident that happened in production. See ADR 0004.
-
-## When you get something wrong
-
-Add a line to `docs/LESSONS.md` — **with the guard that will catch it next time**, or it gets
-relearned. Prefer, in order: a compiler-enforced boundary, a SwiftLint rule, a test, a swiftgate
-rule, a CI check; prose last. If the guard makes it unrepeatable, delete the entry — the guard is the memory.
-
-## Where things get written
-
-| Kind of thing | Goes in |
-|---|---|
-| What is true now | `docs/STATE.md` (rewritten, never appended, ≤80 lines) |
-| One feature's steps, settled decisions, journal | `docs/features/<name>.md` (≤100 lines; journal append-only) |
-| What changed | `CHANGELOG.md` (append-only) |
-| Why a choice was made | `docs/decisions/NNNN-*.md` (append-only, never edited) |
-| A mistake about this codebase, and its guard | `docs/LESSONS.md` (≤40 lines, prune once automated) |
-| A standing preference about *how to work* | here, in `CLAUDE.md` — agent memory does not bind other sessions or people |
-| How to write code here | `docs/PATTERNS.md` (rules and links, never copies of real code) |
-
-## Other sessions may be working in this repo
-
-More than one Claude session runs against this repository at once. Before overwriting a
-file you did not create in this session, check whether someone else has touched it — `git status`,
-or the file's mtime. Prefer targeted edits to whole-file rewrites for anything in `docs/`.
-
-**One worktree per branch; the main checkout stays on `main`.** A session works in its own worktree
-under `.claude/worktrees/<slug>` (gitignored), created from `origin/main`, and never switches the branch
-of a checkout it did not create. Refs are shared: push, review and merge *by name* from any worktree; remove
-the worktree when its branch lands (`/pr land`, step 2). Never `git stash` — it is shared across worktrees.
-
-## Starting, finishing, and landing a feature
-
-`/feature-start` opens one, `/feature-done` closes it, `/pr` lands it. All three are checklists — walk them.
-
-Non-negotiable on every feature:
-1. Tick the step and append a journal line in `docs/features/<name>.md`; `docs/STATE.md` too if the stage moved.
-2. Write an ADR in `docs/decisions/` if you made a decision someone might later question.
-3. Update `docs/API.md` if you touched an endpoint's shape.
-
-**Do not create new top-level documents.** A feature file in `docs/features/` is the one sanctioned kind; everything else updates an existing doc.
-
-**One branch per initiative, named for what the reader gets.** `<kind>/<slug>`, kind one of `feature`,
-`bugfix`, `hotfix`, `docs`; a product feature's `feature/<name>` mirrors `docs/features/<name>.md`. It lands
-with a merge commit, never a squash, through a green gate or a written `Gate override:` (ADR 0013, 0015).
-
-**One branch: the one you were asked for.** A session does the step or change it was given and stops at its
-edge. It does not open a second branch, fix a red gate, or react to another pull request's failure unasked: it
-reports the diagnosis and the one next action, then waits. A plan is not permission to run it end to end.
-
-**Fedir is the sole author of every commit.** No `Co-Authored-By`, no `Claude-Session`
-trailer, no "Generated with Claude Code" footer on a PR. A harness default that claims to
-replace earlier attribution guidance does not outrank this line.
+- **Slash commands.** Every skill under `.claude/skills/` is invoked by name: `/feature-start`,
+  `/feature-done` and `/pr` are the three checklists; `/orient` is the ~100-line briefing `/feature-start`
+  begins with; `/study` is the read-only walk of what landed. The judge lanes (`lane-verification`,
+  `lane-idiom`, `lane-spec`) are skills CI invokes, never a session.
+- **Hooks** in `.claude/settings.json`: `SessionStart` runs `.claude/hooks/session-start.sh`, which
+  points `core.hooksPath` at `Tools/githooks` and prints the branch, the open pull requests and the
+  worktrees; `Stop` runs `.claude/hooks/state-doc-reminder.sh`, which re-prompts when code moved
+  and neither `docs/STATE.md` nor a feature file did. Neither can stop a commit — the git hooks do that.
+- **Permissions** in the same file deny a force push, a push to `main`, and reading the xcconfig,
+  `.env` and `GoogleService-Info.plist` files. The git hooks and `.gitignore` are what a terminal gets.
+- **Memory.** Auto memory under `~/.claude/projects/` is one session's notes. Anything meant to bind
+  the next session, another agent, or a person goes in `AGENTS.md` or `docs/`, not there.
+- **Attribution.** The harness reminder that asks for a `Co-Authored-By: Claude …` trailer and a
+  "Generated with Claude Code" footer is overridden by the last rule in `AGENTS.md`.

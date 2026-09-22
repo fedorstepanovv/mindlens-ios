@@ -133,3 +133,23 @@ compiler caught this the first time the package was built.
 One `AppError` in Core, surfaced to users through a presentation-layer mapping. Network
 errors carry their HTTP status; the envelope's `error` payload is decoded and preserved.
 No error is ever swallowed silently — if it can't be shown, it's logged.
+
+## Glossary
+
+The words this repository uses, one meaning each. Agents and people read this before
+using any of them; a term used differently elsewhere is a bug in the other document.
+
+- **Session** — one agent run bound to one branch; it ends when the branch lands or is abandoned.
+- **Lane** — one judge in CI answering a single question about a pull request (`verification`, `idiom`, `spec`). Never a git branch.
+- **Gate** — everything a pull request must pass in CI: deterministic checks that block, lanes that advise.
+- **Pipeline** — the stages a feature moves through: intake → plan → implement → verify → gate → merge → measure. Each stage has an owner: a human, a session, or a lane.
+- **Intake** — the first stage: producing a feature's behaviour, extracted from the source app (a transfer) or authored from a task (a new feature). A human approves it.
+- **Spec** — a feature's document, `docs/features/<name>.md`: behaviour, settled decisions, steps, journal. What a session plans and implements from; what the `spec` lane judges a pull request against.
+- **Behaviour** — the spec's platform-neutral section: what the user can do, screens, copy, API calls, edge cases, acceptance criteria. The one artifact every platform implements from.
+- **Source app** — the implementation a transfer reads for behaviour and never for structure. Today, the Flutter app.
+- **Transfer** — re-deriving a feature on a new platform from its behaviour, in the target platform's idiom, with the source platform's code as reference only.
+- **Port** — mechanical translation of code between platforms. The name of the mistake, never a method.
+- **Review level** — how much a human reads before merging, assigned by the gate: *pass* (the gate approved on objective criteria; merge without reading), *brief* (read the gate's comment and the PR body), *full* (read the diff). A human always merges.
+- **Risk class** — the paths and conditions that force the full review level.
+- **Parity checkpoint** — a point where two platforms' implementations of one behaviour can be compared mechanically: screen copy, the API calls made, the navigation sequence.
+- **Verdict, finding, evidence** — as defined in ADR 0014.
