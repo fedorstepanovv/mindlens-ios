@@ -1,6 +1,6 @@
 # Authentication
 
-Status: 🟡 · Stage 1 in `docs/STATE.md` · Decisions: ADR 0004, 0005, 0010
+Status: 🟡 · Stage 1 in `docs/STATE.md` · Decisions: ADR 0004, 0005, 0010, 0024, 0025
 
 ## What the user can do
 
@@ -97,13 +97,13 @@ bare pair, single-use. `POST /auth/logout` → 204.
   no plist is misconfigured and hits `preconditionFailure`, as a missing API URL does.
 - Firebase's own error is classified in the provider, once: `.networkError` → `.offline`,
   everything else `.unknown` with the code in the diagnostic. Feature code never sees `NSError`.
-- **The survey belongs to auth** (Fedir, 2026-09-22). The sign-in screen is the survey's last page
-  for sign-up and sign-in alike. This supersedes "the survey is Stage 4's".
+- **The survey belongs to auth**: the sign-in screen is its last page, for sign-up and sign-in
+  alike, and "One last step" is the copy (ADR 0025).
 - A transient restore failure parks in `restoring` with a retry. Only a server-rejected session
   signs out, and that also ends it locally. Sign-out is best-effort remote, unconditional local.
 - The device GUID survives sign-out — the server keeps five sessions per user, LRU.
 - 422 gets its own copy (Share My Email); every other error uses the shared message.
-- Leading-aligned headline, no glowing background: a custom-drawn wash never adopts Liquid Glass.
+- Leading-aligned headline, no carousel, no glowing background: a custom-drawn wash never adopts Liquid Glass.
 
 ## Steps
 
