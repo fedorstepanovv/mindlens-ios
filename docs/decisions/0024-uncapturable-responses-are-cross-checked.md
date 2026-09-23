@@ -1,6 +1,6 @@
 # ADR 0024 — The two uncapturable auth responses are cross-checked, not captured
 
-Date: 2026-09-22 · Status: Accepted
+Date: 2026-09-22 · Status: Accepted · Narrows ADR 0007 (captured-fixture contract tests) for two responses
 
 ## Context
 

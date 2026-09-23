@@ -43,7 +43,7 @@ PR #1's two reviewer warnings (cancellation at the `APIClient` boundary, `RootVi
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Authentication | 🟡 | `docs/features/auth.md`. Apple and Google sign-in and restore work live. Behaviour approved; fixtures, Keychain tests, survey left. |
+| 1 | Authentication | 🟡 | `docs/features/auth.md`. Apple and Google sign-in and restore work live. Behaviour approved; Keychain tests and the survey left. |
 | 2 | Dashboard + Quick Log | 🟡 | `DashboardModel` tested against a stub. No views, no real repository. |
 | 3 | Insights + Recaps | ⬜ | Swift Charts; polls for server-side generation. |
 | 4 | Onboarding + Paywall | ⬜ | Onboarding-status polling, insight reveal, RevenueCat. The pre-sign-in survey is auth's (step 7). |
