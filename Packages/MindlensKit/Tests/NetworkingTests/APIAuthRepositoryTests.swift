@@ -107,6 +107,7 @@ struct APIAuthRepositoryTests {
         let user = try await repository.signInWithGoogle()
 
         #expect(user.id == 42)
+        #expect(user.isOnboardingComplete)
         let credentials = try await refresher.credentials()
         #expect(credentials?.tokens == TokenPair(access: "access-jwt", refresh: "refresh-jwt"))
         let stored = try await storage.load()

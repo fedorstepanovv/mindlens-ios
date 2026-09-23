@@ -4,7 +4,7 @@ Status: 🟡 · Stage 1 in `docs/STATE.md` · Decisions: ADR 0004, 0005, 0010, 0
 
 ## What the user can do
 
-Answer a four-question survey, then sign in with Apple or Google. The same screen serves
+Answer a three-question survey, then sign in with Apple or Google. The same screen serves
 sign-up and sign-in. A new account keeps its answers; a returning one skips posting them.
 Stay signed in across launches, and sign out.
 
@@ -111,7 +111,8 @@ bare pair, single-use. `POST /auth/logout` → 204.
 2. ✅ `APIAuthRepository`, `AuthTokenRefreshTransport`, `KeychainDeviceIdentity`; 79 tests; gate launches the app.
 3. ✅ Firebase Auth (app target only) and Sign in with Apple, run for real; entitlement and team asserted by the gate.
 4. ✅ Google Sign-In through the same seam, run for real; the redirect scheme asserted against the bundled plist.
-5. ✅ The two auth responses are cross-checked, not captured (ADR 0024): one `ConstructedResponse` feeds every test; dead waivers gone.
+5. ✅ The two auth responses are cross-checked, not captured: one `ConstructedResponse` feeds every test; dead waivers
+   gone. The ready condition (live captures) was replaced by ADR 0024, not met.
 6. ⬜ `Persistence` test target for the Keychain paths, which have run for real but never under a test.
 7. ⬜ **The survey** — pages 0–3 ahead of `SignInView` and a new account's answers posted after
    sign-in, per Behaviour. Shaped in full when it opens.
