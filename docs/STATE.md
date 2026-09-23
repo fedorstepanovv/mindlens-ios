@@ -5,7 +5,7 @@
 **Rewritten in place, never appended to** — what stops being current moves to `CHANGELOG.md`; the server repo's
 equivalent reached 2,000 lines. **Hard cap: 80 lines**, enforced by `Tools/check-doc-links.py`: adding a line means removing one.
 
-Last updated: 2026-09-22
+Last updated: 2026-09-23
 
 ---
 
@@ -24,8 +24,8 @@ Firebase project beside `mindlens/Info.plist`; the file is gitignored, so CI and
 `docs/features/auth.md`). Every sign-in is a real production account.
 
 Nothing reaches `main` except a PR through the gate — test, build, launch, settings + team + entitlement (Debug only), lint, doc links, `Tools/swiftgate` static rules, branch name, ADR numbers, size (ADR 0006, 0012–0015). **Only that deterministic half blocks.** The three lanes (verification, idiom against this repo's exemplars, spec) run behind their evidence gates, report and record, and all three are `blocks: false`: a `BLOCK` or `CANNOT_EVALUATE` stops nothing until a reviewed PR cites the grant rule — ≥10 judged PRs, noise ≤30%, ≥1 finding `changed` — with the kill rule written down beside it (ADR 0021). A finding without a `proof` is dropped and counted. The gate assigns *pass*, *brief* or *full* from the diff and labels the PR; a human always merges (ADR 0017). Caps: 1,000 changed lines, 10 unreviewed commits.
-`swiftgate metrics` sums the records (ADR 0016) — **no lane has judged a real diff yet**, so every cost and noise field
-is empty. `main` is unprotected on this plan; `Tools/githooks` refuse the push and `Tools/setup.sh` installs them.
+`swiftgate metrics` sums the records (ADR 0016). **One PR judged so far** — #17: verification and spec each `CONCERNS`,
+idiom skipped (no view or model) — so no noise rate means anything yet. `main` is unprotected on this plan; `Tools/githooks` refuse the push and `Tools/setup.sh` installs them.
 
 The pipeline is written down and built: `README.md` is the artifact — stages and owners (ADR 0019), the decisions by
 area against September 2026 practice (ADR 0017–0023), an evidence section that stays empty until the records fill it —
@@ -34,8 +34,8 @@ feature template has a human-approved `## Behaviour` section (ADR 0020); `docs/f
 
 ## Next action
 
-`feature/auth` step 5 is in review. It is the first PR that changes Swift, so the first the lanes judge and the
-first with records to measure. After it: auth step 6 (the `Persistence` test target), then step 7 (the survey).
+`feature/auth` step 6: the Keychain tests, app-hosted because a package test bundle gets `-34018` on the simulator.
+Then step 7 (the survey).
 PR #1's two reviewer warnings (cancellation at the `APIClient` boundary, `RootView`'s placeholder copy) wait for a
 `bugfix/` branch. Blocked on nothing.
 
