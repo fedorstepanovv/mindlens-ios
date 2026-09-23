@@ -10,6 +10,11 @@ progress log this project has produced before.
 ## [Unreleased]
 
 ### Added
+- **Auth's `## Behaviour`**, approved 2026-09-22: the first under ADR 0020. The pre-sign-in survey (goal, feeling,
+  hurdle) belongs to auth, not Stage 4, and a new account's answers are posted after sign-in (auth step 7, ADR 0025).
+- `TestSupport/ConstructedResponse`: the one constructed body each for `POST /auth/apple` and `/auth/refresh`, which
+  cannot be captured. Cross-checked against Prisma and the source app's production models (ADR 0024). The three
+  hand-written copies it replaces are gone, and so are two `swiftgate:allow` comments that named deleted rules.
 - The gate's judge lanes are **advisory**, and earn blocking on their own record. `.github/swiftgate.yml`'s
   `lanes:` becomes a map of lane → `{blocks, model}`: every listed lane runs, is reported on the pull request
   and writes a metrics record, and only one with `blocks: true` can stop a merge. All three start false —

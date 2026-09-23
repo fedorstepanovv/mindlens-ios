@@ -9,13 +9,7 @@ import Testing
 @Suite("Live token refresh")
 struct AuthTokenRefreshTransportTests {
 
-    private static let validPair = Data(
-        """
-        {"data":{"accessToken":"new-access","refreshToken":"new-refresh"},
-        "statusCode":200,"success":true,"timestamp":"2026-09-10T18:22:41.512Z"}
-        """
-        .utf8
-    )
+    private static let validPair = ConstructedResponse.tokenRefresh
 
     @Test("a successful rotation returns the new pair")
     func rotates() async throws {

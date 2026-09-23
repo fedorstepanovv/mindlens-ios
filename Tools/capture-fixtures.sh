@@ -70,12 +70,10 @@ if [ -n "${TOKEN:-}" ]; then
   capture profile_200   GET /profiles           auth 200
   capture categories_200 GET /categories        auth 200
   capture mood_list_200 GET "/mood?date=$(date +%F)&timezone=Europe/Kyiv" auth 200
-  # The two the swiftgate waiver in AuthEndpoints.swift is waiting on. Both need a session,
-  # which needs the Firebase SDK — but when that lands, this is the command.
   capture mood_create_200 POST /mood auth 201 '{"moodRate":3}'
-  echo "  … /auth/apple 200 and /auth/refresh 200 still cannot be captured here:"
-  echo "    the first needs a live Firebase ID token, the second consumes the session's"
-  echo "    refresh token. Capture them by hand during a real sign-in."
+  echo "  … /auth/apple 200 and /auth/refresh 200 are never captured: the first needs a live"
+  echo "    Firebase ID token, the second consumes the session's refresh token. They are"
+  echo "    TestSupport/ConstructedResponse, cross-checked instead (ADR 0024)."
 else
   echo "Authenticated: skipped (set TOKEN to capture)"
 fi

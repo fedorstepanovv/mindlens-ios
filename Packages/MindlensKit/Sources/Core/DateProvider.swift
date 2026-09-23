@@ -22,8 +22,6 @@ public struct SystemDateProvider: DateProvider {
 
     public var now: Date { Date() }
 
-    // swiftgate:allow core/calendar-current — this is the injection seam the rule exists to
-    // funnel everything else through. Reading the ambient zone here is what makes it
-    // possible to ban reading it anywhere else.
+    // The one read of the ambient zone: everything else takes a `DateProvider`.
     public var timeZone: TimeZone { TimeZone.current }
 }

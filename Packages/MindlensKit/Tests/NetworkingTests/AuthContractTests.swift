@@ -84,22 +84,8 @@ struct AuthRequestBodyTests {
 @Suite("Auth response decoding")
 struct AuthResponseDecodingTests {
 
-    /// ⚠️ **Constructed, not captured.** Every field and spelling here comes from the server's
-    /// `SocialLoginResponseDto` (`user: User`, so the whole Prisma row) plus `Tokens`, but a
-    /// real `/auth/apple` 200 needs a live Firebase ID token, which needs the SDK wired. This
-    /// asserts our decoding, **not** the server's shape — it is deliberately not in
-    /// `Fixtures/`, because a file in there claims to be a capture. See `docs/STATE.md`.
-    private static let sessionBody = Data(
-        """
-        {"data":{"user":{"id":42,"email":"someone@example.com","authProvider":"APPLE",
-        "googleSocialId":null,"appleSocialId":"000123.abc.0100","timezone":"Europe/Kyiv",
-        "isOnboardingComplete":false,"createdAt":"2026-09-10T18:22:41.512Z",
-        "updatedAt":"2026-09-10T18:22:41.512Z"},
-        "tokens":{"accessToken":"access-jwt","refreshToken":"refresh-jwt"}},
-        "statusCode":200,"success":true,"timestamp":"2026-09-10T18:22:41.512Z"}
-        """
-        .utf8
-    )
+    /// Constructed, not captured: see `ConstructedResponse` and ADR 0024.
+    private static let sessionBody = ConstructedResponse.signIn()
 
     @Test("a sign-in response unwraps to a user and a token pair")
     func decodesSession() throws {

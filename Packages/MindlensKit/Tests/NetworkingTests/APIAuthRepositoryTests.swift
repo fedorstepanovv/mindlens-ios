@@ -58,15 +58,7 @@ struct APIAuthRepositoryTests {
         }
     }
 
-    static let sessionBody = Data(
-        """
-        {"data":{"user":{"id":42,"email":"someone@example.com","authProvider":"APPLE",
-        "timezone":"Europe/Kyiv","isOnboardingComplete":true},
-        "tokens":{"accessToken":"access-jwt","refreshToken":"refresh-jwt"}},
-        "statusCode":200,"success":true,"timestamp":"2026-09-10T18:22:41.512Z"}
-        """
-        .utf8
-    )
+    static let sessionBody = ConstructedResponse.signIn(isOnboardingComplete: true)
 
     private func makeRepository(
         server: Server,
@@ -115,6 +107,7 @@ struct APIAuthRepositoryTests {
         let user = try await repository.signInWithGoogle()
 
         #expect(user.id == 42)
+        #expect(user.isOnboardingComplete)
         let credentials = try await refresher.credentials()
         #expect(credentials?.tokens == TokenPair(access: "access-jwt", refresh: "refresh-jwt"))
         let stored = try await storage.load()

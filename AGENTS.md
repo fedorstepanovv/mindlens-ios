@@ -85,7 +85,8 @@ every interactive element, light and dark both correct. Rules: `docs/DESIGN.md`.
 
 Swift Testing (`@Test`/`#expect`) for units; XCTest only where XCUITest requires it. Required before a feature is done:
 - Every ViewModel has tests.
-- Every API response type has a decoding test against a real captured JSON fixture.
+- Every API response type has a decoding test against a real captured JSON fixture — except the two
+  auth responses nobody can capture, which are constructed and cross-checked (ADR 0024).
   There is no OpenAPI spec — these fixtures are the only contract guard we have.
 - Every bug fix ships with a regression test named for the bug.
 
@@ -114,7 +115,7 @@ rule, a CI check; prose last. If the guard makes it unrepeatable, delete the ent
 | Kind of thing | Goes in |
 |---|---|
 | What is true now | `docs/STATE.md` (rewritten, never appended, ≤80 lines) |
-| One feature's behaviour, steps, settled decisions, journal | `docs/features/<name>.md` (≤150 lines; journal append-only, one line per pull request) |
+| One feature's behaviour, steps, settled decisions, journal | `docs/features/<name>.md` (≤150 lines; journal append-only, one line per pull request; when the cap forces a prune, the oldest lines go and `git log` keeps them) |
 | What changed | `CHANGELOG.md` (append-only) |
 | Why a choice was made | `docs/decisions/NNNN-*.md` (append-only, never edited) |
 | A mistake about this codebase, and its guard | `docs/LESSONS.md` (≤40 lines, prune once automated) |

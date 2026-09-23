@@ -30,24 +30,23 @@ is empty. `main` is unprotected on this plan; `Tools/githooks` refuse the push a
 The pipeline is written down and built: `README.md` is the artifact — stages and owners (ADR 0019), the decisions by
 area against September 2026 practice (ADR 0017–0023), an evidence section that stays empty until the records fill it —
 and `AGENTS.md` is canonical, `CLAUDE.md` its import. Every mechanism those ADRs decided now exists in the gate. The
-feature template has a human-approved `## Behaviour` section (ADR 0020); `docs/features/auth.md` gets its own at step 5.
+feature template has a human-approved `## Behaviour` section (ADR 0020); `docs/features/auth.md` has the first, approved 2026-09-22.
 
 ## Next action
 
-The load, starting with `feature/auth` — `docs/features/auth.md` step 5: write its `## Behaviour`, capture the
-`/auth/apple` and `/auth/refresh` 200s off a proxied real sign-in, point the decoding tests at them, drop the dead
-waivers. It is the first PR that changes Swift, so the first the lanes judge and the first with records to measure.
+`feature/auth` step 5 is in review. It is the first PR that changes Swift, so the first the lanes judge and the
+first with records to measure. After it: auth step 6 (the `Persistence` test target), then step 7 (the survey).
 PR #1's two reviewer warnings (cancellation at the `APIClient` boundary, `RootView`'s placeholder copy) wait for a
-`bugfix/` branch after it. Blocked on nothing.
+`bugfix/` branch. Blocked on nothing.
 
 ## Stages
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Authentication | 🟡 | `docs/features/auth.md`. Apple and Google sign-in and restore work live. Live fixtures, Keychain tests left. |
+| 1 | Authentication | 🟡 | `docs/features/auth.md`. Apple and Google sign-in and restore work live. Behaviour approved; Keychain tests and the survey left. |
 | 2 | Dashboard + Quick Log | 🟡 | `DashboardModel` tested against a stub. No views, no real repository. |
 | 3 | Insights + Recaps | ⬜ | Swift Charts; polls for server-side generation. |
-| 4 | Onboarding + Paywall | ⬜ | Survey polling, RevenueCat. The Flutter login screen bundles this survey ahead of sign-in. |
+| 4 | Onboarding + Paywall | ⬜ | Onboarding-status polling, insight reveal, RevenueCat. The pre-sign-in survey is auth's (step 7). |
 
 Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 
@@ -55,9 +54,8 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 
 ## Known gaps
 
-- **No captured fixture for `/auth/apple` or `/auth/refresh` 200** — neither is scriptable, so decoding runs against
-  inline bodies labelled as constructed, and dead `swiftgate:allow` comments in `AuthEndpoints.swift` and
-  `DateProvider.swift` name rules that are gone. Capture both off a proxied sign-in (`auth.md` step 5).
+- **`/auth/apple` and `/auth/refresh` 200 are constructed, not captured.** Nothing fails if the server changes
+  them; they are cross-checked against Prisma and the source app's models (ADR 0024).
 - **The live refresh has never been observed** (restore only ran inside the 15-minute window), and **`Persistence`
   has no test target** — the verification lane reports that on any PR touching it. `auth.md` step 6.
 - **Sign-out leaves the Firebase user signed in** — the seam has no sign-out. Fine until account deletion.
