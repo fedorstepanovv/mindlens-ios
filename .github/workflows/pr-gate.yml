@@ -78,6 +78,18 @@ jobs:
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -quiet
 
+      # The Keychain paths, hosted by the app. A package test bundle has no Keychain on the
+      # simulator — a write returns -34018 — so these cannot live beside the other unit tests
+      # (ADR 0026). Every run, and never retried: a Keychain test that fails once has failed.
+      - name: Test the app-hosted Keychain paths
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme mindlens \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:mindlensTests \
+            -quiet
+
       # A green build says the app compiles, not that it runs. It once compiled cleanly and
       # then died on the first line of the composition root. Two launches — default, and the
       # largest accessibility text size — are the cheapest test that would have caught it.
@@ -139,7 +151,7 @@ jobs:
           # Tests are linted too. Leaving them out is how a force-unwrap in
           # TestSupport passed the gate while failing a local full-tree lint.
           xcrun swift-format lint --recursive --strict \
-            Packages/MindlensKit/Sources Packages/MindlensKit/Tests mindlens
+            Packages/MindlensKit/Sources Packages/MindlensKit/Tests mindlens mindlensTests
 
   readiness:
     name: Judge lanes and PR readiness

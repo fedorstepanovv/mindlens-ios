@@ -10,6 +10,10 @@ progress log this project has produced before.
 ## [Unreleased]
 
 ### Added
+- **The Keychain paths under test**, in the app-hosted `mindlensTests`: token storage (round trip, rotation in one
+  item, clear, the accessibility class read back) and the device GUID (persistence, concurrent callers, the 6–36
+  bound, `forget`). A package test bundle has no Keychain on the simulator (`-34018`), so the app hosts them, and the
+  gate runs them on every PR with no retry (ADR 0026). SwiftLint and swift-format now cover `mindlensTests`.
 - **Auth's `## Behaviour`**, approved 2026-09-22: the first under ADR 0020. The pre-sign-in survey (goal, feeling,
   hurdle) belongs to auth, not Stage 4, and a new account's answers are posted after sign-in (auth step 7, ADR 0025).
 - `TestSupport/ConstructedResponse`: the one constructed body each for `POST /auth/apple` and `/auth/refresh`, which
@@ -271,6 +275,10 @@ progress log this project has produced before.
   the pre-push hook, and a team gets the rule from a ruleset.
 
 ### Fixed
+- `KeychainItem.write` deleted by its full attributes, accessibility class included, so an item stored under another
+  class survived the delete and the add failed as a duplicate. The device GUID was re-minted on every launch, and a
+  session item could never take a rotated pair. It now deletes by service and account. Found by the first run of the
+  Keychain tests. Regression tests are tagged `.bug`.
 - `Tools/check-doc-links.py` checked nothing when run inside a worktree and reported success; it
   now matches skip directories below the repo root and refuses to pass with zero documents. Append-only
   history (`CHANGELOG.md`, `docs/decisions/`) may name a deleted path git still remembers.

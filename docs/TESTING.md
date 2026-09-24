@@ -94,6 +94,12 @@ let client = APIClient(baseURL: url, session: session, refresher: refresher)
 Fakes live in `TestSupport`, and the protocols they implement live in **shared** targets,
 never in features — otherwise `TestSupport` would have to depend on a feature.
 
+## The Keychain is tested hosted by the app
+
+A package test bundle on the simulator has no Keychain: a write returns `-34018`. The `Persistence` Keychain tests
+live in `mindlensTests`, which the app hosts, and `KeychainProbe` plants items and reads their attributes back
+(ADR 0026). Run them with `xcodebuild test -scheme mindlens -only-testing:mindlensTests`; `swift test` does not.
+
 ## What not to test
 
 Don't test SwiftUI body output, Apple's frameworks, or trivial forwarding. Don't chase a

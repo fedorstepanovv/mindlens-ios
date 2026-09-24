@@ -6,6 +6,7 @@ included:
   - Packages/MindlensKit/Sources
   - Packages/MindlensKit/Tests
   - mindlens
+  - mindlensTests
 
 excluded:
   - Packages/MindlensKit/.build

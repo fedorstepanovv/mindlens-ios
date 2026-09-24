@@ -12,7 +12,7 @@ Last updated: 2026-09-23
 ## Where things stand
 
 Swift 6, iOS 18, strict concurrency — all from `Config/Base.xcconfig`, the only definition of those
-settings (ADR 0009). **79 tests across 19 suites pass** in ~2s. SwiftLint, swift-format and the doc-link check are clean.
+settings (ADR 0009). **79 package tests across 19 suites pass** in ~2s, and 13 Keychain tests run hosted by the app (ADR 0026). SwiftLint, swift-format and the doc-link check are clean.
 
 **The app has UI, verified by running it** — the scene root switches on `SessionState`; signed-out
 is the sign-in screen, checked light/dark at default and the largest text size. The rest is stubs.
@@ -34,8 +34,8 @@ feature template has a human-approved `## Behaviour` section (ADR 0020); `docs/f
 
 ## Next action
 
-`feature/auth` step 6: the Keychain tests, app-hosted because a package test bundle gets `-34018` on the simulator.
-Then step 7 (the survey).
+`feature/auth` step 6 is in review: the Keychain tests, app-hosted (ADR 0026). Their first run found
+`KeychainItem.write` leaving an item stored under another accessibility class in place. Fixed. Next: step 7 (the survey).
 PR #1's two reviewer warnings (cancellation at the `APIClient` boundary, `RootView`'s placeholder copy) wait for a
 `bugfix/` branch. Blocked on nothing.
 
@@ -43,7 +43,7 @@ PR #1's two reviewer warnings (cancellation at the `APIClient` boundary, `RootVi
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Authentication | 🟡 | `docs/features/auth.md`. Apple and Google sign-in and restore work live. Behaviour approved; Keychain tests and the survey left. |
+| 1 | Authentication | 🟡 | `docs/features/auth.md`. Apple and Google sign-in and restore work live. Behaviour approved; Keychain under test; the survey left. |
 | 2 | Dashboard + Quick Log | 🟡 | `DashboardModel` tested against a stub. No views, no real repository. |
 | 3 | Insights + Recaps | ⬜ | Swift Charts; polls for server-side generation. |
 | 4 | Onboarding + Paywall | ⬜ | Onboarding-status polling, insight reveal, RevenueCat. The pre-sign-in survey is auth's (step 7). |
@@ -56,8 +56,7 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 
 - **`/auth/apple` and `/auth/refresh` 200 are constructed, not captured.** Nothing fails if the server changes
   them; they are cross-checked against Prisma and the source app's models (ADR 0024).
-- **The live refresh has never been observed** (restore only ran inside the 15-minute window), and **`Persistence`
-  has no test target** — the verification lane reports that on any PR touching it. `auth.md` step 6.
+- **The live refresh has never been observed** — restore has only run inside the 15-minute window.
 - **Sign-out leaves the Firebase user signed in** — the seam has no sign-out. Fine until account deletion.
 - **A transient restore failure parks in `restoring` with a retry** — correct only because no user row is cached — and
   **the local store is not observable**. SwiftData, the outbox, ADR 0003's gate: Stage 2.
