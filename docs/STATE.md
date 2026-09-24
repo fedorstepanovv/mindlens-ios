@@ -34,12 +34,9 @@ feature template has a human-approved `## Behaviour` section (ADR 0020); `docs/f
 
 ## Next action
 
-`feature/auth` step 6 landed (PR #18): the Keychain tests, app-hosted (ADR 0026). They found and fixed a `KeychainItem.write` bug.
-**First, before step 7** — PR #18's three lane nits, one commit on the step-7 branch:
-1. `.timeLimit(.minutes(1))` on `concurrentCallersShareOne` — the hosted step never retries, so a hang stalls the job.
-2. `KeychainProbe.plant` takes the accessibility class explicitly; the `.bug` token test passes `kSecAttrAccessibleWhenUnlocked`.
-3. The "one PR judged" line above: say what `swiftgate metrics` counts once #18's record is in.
-Then step 7 (the survey), shaped in full when it opens.
+`feature/auth` step 7 is open: a new account's survey answers posted after sign-in, behind an `OnboardingRepository`.
+PR #18's three lane nits landed first on the branch. Response shapes are read from the source app's models and Prisma,
+not captured (ADR 0027), so no step needs a production token. Step 8, the survey pages, follows.
 PR #1's two reviewer warnings (cancellation at the `APIClient` boundary, `RootView`'s placeholder copy) wait for a
 `bugfix/` branch. Blocked on nothing.
 

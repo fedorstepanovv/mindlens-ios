@@ -1,6 +1,6 @@
 # Authentication
 
-Status: 🟡 · Stage 1 in `docs/STATE.md` · Decisions: ADR 0004, 0005, 0010, 0024, 0025, 0026
+Status: 🟡 · Stage 1 in `docs/STATE.md` · Decisions: ADR 0004, 0005, 0010, 0024, 0025, 0026, 0027
 
 ## What the user can do
 
@@ -115,27 +115,25 @@ bare pair, single-use. `POST /auth/logout` → 204.
    gone. The ready condition (live captures) was replaced by ADR 0024, not met.
 6. ✅ The Keychain paths under test in `mindlensTests`, hosted by the app: a package bundle gets `-34018` on the
    simulator (ADR 0026). 13 tests, and the gate runs them on every PR. They found a real `KeychainItem.write` bug.
-7. ⬜ **The survey** — pages 0–3 ahead of `SignInView` and a new account's answers posted after
-   sign-in, per Behaviour. Shaped in full when it opens.
+7. 🟡 **A new account's answers are posted after sign-in** — first, so no page ever asks for answers that go nowhere.
+   entries: `SessionModel`'s sign-in path once `authenticate()` returns `isOnboardingComplete == false`; `SurveyAnswers`
+   and `OnboardingRepository` in `Models`, the API implementation in `Networking`. The server: `POST /baseline` twice
+   is 409, `GET /goals` never 404s, `complete-onboarding` twice is 400 and not transactional — so check before posting.
+   files: `Packages/MindlensKit/Sources/Features/Authentication/SessionModel.swift`,
+   `Packages/MindlensKit/Sources/TestSupport/ConstructedResponse.swift`, `docs/API.md`; `SurveyAnswers.swift`,
+   `OnboardingRepository.swift`, `APIOnboardingRepository.swift` *(new)*.
+   ready: tests show baseline → goals → complete-onboarding with the wire values for a new account and nothing for a
+   returning one; an existing baseline or goal skips its POST; a failure keeps the sign-in page, and Retry posts only
+   what is missing without the provider sheet; the account lands on `.onboarding` though its flag now reads true.
+   Bodies are `ConstructedResponse`, cross-checked (ADR 0027).
+8. ⬜ **The survey pages** — intro, goal, feeling, hurdle ahead of `SignInView`, per Behaviour's Flows, Screens and Copy.
+   entries: `RootView`'s `.signedOut` case; `SignInView` becomes page 4 and hands step 7 its `SurveyAnswers`.
+   files: `Packages/MindlensKit/Sources/Features/Authentication/SignInView.swift`, `mindlens/RootView.swift`.
+   ready: previews for every state in Screens; copy verbatim; Continue gated on goal and hurdle; run in the simulator
+   light and dark, default and largest text.
 
 ## Journal
 
-- 2026-09-11 — Review: two `TokenRefresher` bugs (a stale refresh over a new session; `defer`
-  unregistering the wrong task). The test that claimed to cover them never called the
-  transport. Fixed, with tests that make the interleaving instead of racing for it.
-- 2026-09-11 — Google button paired to Apple's per the HIG. Previews for every state.
-- 2026-09-11 — Firebase Auth linked, `FirebaseIdentityProvider` written, entitlement signed;
-  the stand-in stays as the no-plist fallback since CI never has one. `codesign` reads an
-  *empty* set off a simulator build — the truth is `__TEXT,__entitlements`, which the gate now
-  decodes. Open: sign-out leaves the Firebase user signed in (no sign-out on the seam; account
-  deletion will want it, plus the authorization code). SPM fetches every Firebase binary, ~1 GB.
-- 2026-09-11 — First real run. `-7022` from AuthKit: no `DEVELOPMENT_TEAM`, so Xcode guessed a
-  team that did not own the App ID. Then a 422 nothing logged — `AppError.diagnostic` had never
-  been read; `Logger(category:)` in `Core` and `SessionModel.failed()` fix that. The 422 was a
-  plist from a second Firebase project; the API verifies only production's.
-- 2026-09-11 — Native bundle ID registered as a second iOS app in the production project. First
-  real sign-in landed on the signed-in stub; relaunch restored the session (Keychain →
-  `GET /users`). Step 3 ticked. Sign-ins hit production accounts — there is no other backend.
 - 2026-09-11 — Google wired (step 4), unrun: `GoogleSignIn-iOS` 10.0.0 fits Firebase 12.19's
   graph (GTMSessionFetcher `3.3..<6`). The SDK asserts the redirect scheme with an ObjC
   exception at the tap; the provider derives it from the client ID and throws first.
@@ -146,3 +144,5 @@ bare pair, single-use. `POST /auth/logout` → 204.
   step 5 cross-checks the two auth bodies against Prisma and the source app's production models instead (ADR 0024).
 - 2026-09-23 — Step 6. The package bundle has no Keychain on the simulator (`-34018`), so the tests are app-hosted (ADR 0026).
   First run: `write` deleted by attributes, so an item under another accessibility class survived as a duplicate — a new GUID per launch.
+- 2026-09-24 — Step 7 opened. PR #18's lane nits landed first. Response shapes come from the source app's models and
+  Prisma, not a capture (ADR 0027). Survey split in two: posting (7), then the pages (8).

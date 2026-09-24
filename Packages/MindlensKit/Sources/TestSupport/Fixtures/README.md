@@ -3,6 +3,10 @@
 Real responses captured from the production API, used to prove our `Codable` types match
 what the server actually sends. There is no OpenAPI spec — these are the contract guard.
 
+A response the source app decodes in production is not captured: it is one body in
+`ConstructedResponse`, cross-checked against that model and Prisma (ADR 0027). What stays here is
+error envelopes and anything the source app never decodes.
+
 | File | Captured | Notes |
 |---|---|---|
 | `error_unauthorized_401.json` | ✅ live | Note there is **no** `error` key inside `error` — only `message` + `statusCode` |
