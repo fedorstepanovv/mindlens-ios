@@ -24,8 +24,8 @@ Firebase project beside `mindlens/Info.plist`; the file is gitignored, so CI and
 `docs/features/auth.md`). Every sign-in is a real production account.
 
 Nothing reaches `main` except a PR through the gate — test, build, launch, settings + team + entitlement (Debug only), lint, doc links, `Tools/swiftgate` static rules, branch name, ADR numbers, size (ADR 0006, 0012–0015). **Only that deterministic half blocks.** The three lanes (verification, idiom against this repo's exemplars, spec) run behind their evidence gates, report and record, and all three are `blocks: false`: a `BLOCK` or `CANNOT_EVALUATE` stops nothing until a reviewed PR cites the grant rule — ≥10 judged PRs, noise ≤30%, ≥1 finding `changed` — with the kill rule written down beside it (ADR 0021). A finding without a `proof` is dropped and counted. The gate assigns *pass*, *brief* or *full* from the diff and labels the PR; a human always merges (ADR 0017). Caps: 1,000 changed lines, 10 unreviewed commits.
-`swiftgate metrics` sums the records (ADR 0016). **One PR judged so far** — #17: verification and spec each `CONCERNS`,
-idiom skipped (no view or model) — so no noise rate means anything yet. `main` is unprotected on this plan; `Tools/githooks` refuse the push and `Tools/setup.sh` installs them.
+`swiftgate metrics` sums the records (ADR 0016). **Two PRs judged** — #17 and #18, 7 runs, 21 of 22 findings classified at
+merge: spec 25% noise (4 of 16), verification 60% (3 of 5), idiom skipped all 7 (no view or model). Two PRs of ten is no rate. `main` is unprotected on this plan; `Tools/githooks` refuse the push and `Tools/setup.sh` installs them.
 
 The pipeline is written down and built: `README.md` is the artifact — stages and owners (ADR 0019), the decisions by
 area against September 2026 practice (ADR 0017–0023), an evidence section that stays empty until the records fill it —

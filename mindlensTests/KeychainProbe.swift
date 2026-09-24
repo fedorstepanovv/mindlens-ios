@@ -26,9 +26,13 @@ struct KeychainProbe: Sendable {
         ]
     }
 
-    func plant(_ data: Data) throws {
+    /// Plants an item under the accessibility class given. The class is a parameter, never a
+    /// default: left out, the Keychain picks `kSecAttrAccessibleWhenUnlocked`, and a test whose
+    /// premise is "an item under *another* class" would rest on that unstated choice.
+    func plant(_ data: Data, accessibility: CFString) throws {
         var attributes = query
         attributes[kSecValueData as String] = data
+        attributes[kSecAttrAccessible as String] = accessibility
         let status = SecItemAdd(attributes as CFDictionary, nil)
         guard status == errSecSuccess else { throw ProbeError(status: status) }
     }
