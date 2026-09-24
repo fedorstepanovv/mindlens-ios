@@ -38,6 +38,9 @@ the one the gate uses would be a second way of being green.
 - Tests of a package module live outside the package. `swift test` does not run them. To run them
   locally, use `xcodebuild test -scheme mindlens -only-testing:mindlensTests`.
 - `mindlensTests` is now linted by SwiftLint and swift-format like every other Swift directory.
+- The verification lane's evidence rule looks for `Persistence`'s tests in `mindlensTests`, and swiftgate reads that
+  folder as test code. Until then it asked for a `PersistenceTests` folder that will never exist, so it
+  could not evaluate any `Persistence` change, including this one.
 
 ## What would change this
 

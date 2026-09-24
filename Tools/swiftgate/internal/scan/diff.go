@@ -32,6 +32,7 @@ func (c ChangedFile) IsSwift() bool { return strings.HasSuffix(c.Path, ".swift")
 func (c ChangedFile) IsTest() bool {
 	return strings.Contains(c.Path, "/Tests/") ||
 		strings.Contains(c.Path, "/TestSupport/") ||
+		strings.HasPrefix(c.Path, "mindlensTests/") ||
 		strings.HasSuffix(c.Path, "Tests.swift")
 }
 

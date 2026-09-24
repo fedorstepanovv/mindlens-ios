@@ -275,6 +275,10 @@ progress log this project has produced before.
   the pre-push hook, and a team gets the rule from a ruleset.
 
 ### Fixed
+- The verification lane's evidence gate asked for a `PersistenceTests` folder in the package, which ADR 0026 means will
+  never exist. That switched the lane off on every `Persistence` change, including the one that added its tests.
+  It now looks in `mindlensTests`, and swiftgate reads `mindlensTests/` as test code even when a file's name does not
+  end in `Tests`. Found by the spec lane on PR #18.
 - `KeychainItem.write` deleted by its full attributes, accessibility class included, so an item stored under another
   class survived the delete and the add failed as a duplicate. The device GUID was re-minted on every launch, and a
   session item could never take a rotated pair. It now deletes by service and account. Found by the first run of the
