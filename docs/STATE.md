@@ -12,7 +12,7 @@ Last updated: 2026-09-23
 ## Where things stand
 
 Swift 6, iOS 18, strict concurrency — all from `Config/Base.xcconfig`, the only definition of those
-settings (ADR 0009). **79 package tests across 19 suites pass** in ~2s, and 13 Keychain tests run hosted by the app (ADR 0026). SwiftLint, swift-format and the doc-link check are clean.
+settings (ADR 0009). **95 package tests across 21 suites pass** in ~2s, and 13 Keychain tests run hosted by the app (ADR 0026). SwiftLint, swift-format and the doc-link check are clean.
 
 **The app has UI, verified by running it** — the scene root switches on `SessionState`; signed-out
 is the sign-in screen, checked light/dark at default and the largest text size. The rest is stubs.
@@ -58,6 +58,8 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done · ⏸ deferred
 - **`/auth/apple` and `/auth/refresh` 200 are constructed, not captured.** Nothing fails if the server changes
   them; they are cross-checked against Prisma and the source app's models (ADR 0024).
 - **The live refresh has never been observed** — restore has only run inside the 15-minute window.
+- **A relaunch between saving a new account's session and posting its answers loses them**: restore lands on the
+  onboarding stub with nothing to post. Stage 4 owns that screen and has to decide what it asks again.
 - **Sign-out leaves the Firebase user signed in** — the seam has no sign-out. Fine until account deletion.
 - **A transient restore failure parks in `restoring` with a retry** — correct only because no user row is cached — and
   **the local store is not observable**. SwiftData, the outbox, ADR 0003's gate: Stage 2.

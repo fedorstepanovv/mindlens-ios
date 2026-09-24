@@ -91,18 +91,29 @@ struct RootView: View {
 
 #if DEBUG
 #Preview("Restoring") {
-    RootView(session: SessionModel(auth: PreviewAuthRepository(restore: .hangs)))
+    RootView(
+        session: SessionModel(
+            auth: PreviewAuthRepository(restore: .hangs), onboarding: PreviewOnboardingRepository()))
 }
 
 #Preview("Can't reach the server") {
-    RootView(session: SessionModel(auth: PreviewAuthRepository(restore: .fails(AppError(kind: .offline)))))
+    RootView(
+        session: SessionModel(
+            auth: PreviewAuthRepository(restore: .fails(AppError(kind: .offline))),
+            onboarding: PreviewOnboardingRepository()
+        )
+    )
 }
 
 #Preview("Signed out") {
-    RootView(session: SessionModel(auth: PreviewAuthRepository()))
+    RootView(session: SessionModel(auth: PreviewAuthRepository(), onboarding: PreviewOnboardingRepository()))
 }
 
 #Preview("Signed in") {
-    RootView(session: SessionModel(auth: PreviewAuthRepository(restore: .succeeds(.preview))))
+    RootView(
+        session: SessionModel(
+            auth: PreviewAuthRepository(restore: .succeeds(.preview)),
+            onboarding: PreviewOnboardingRepository())
+    )
 }
 #endif

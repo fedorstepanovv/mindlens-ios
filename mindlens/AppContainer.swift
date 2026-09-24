@@ -42,13 +42,16 @@ final class AppContainer {
             storage: KeychainTokenStorage()
         )
 
+        let client = APIClient(baseURL: baseURL, refresher: refresher)
+
         session = SessionModel(
             auth: APIAuthRepository(
-                client: APIClient(baseURL: baseURL, refresher: refresher),
+                client: client,
                 refresher: refresher,
                 identity: identity,
                 device: KeychainDeviceIdentity()
             ),
+            onboarding: APIOnboardingRepository(client: client),
             analytics: analytics
         )
     }

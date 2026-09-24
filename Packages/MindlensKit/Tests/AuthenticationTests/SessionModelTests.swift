@@ -274,3 +274,11 @@ struct SessionSideEffectTests {
         #expect(model.error == nil)
     }
 }
+
+extension SessionModel {
+    /// A model for the suites that are not about the survey: a new account arrives with no answers,
+    /// so nothing is ever posted and the stub is never called.
+    convenience init(auth: any AuthRepository, analytics: any AnalyticsRecording = .noop) {
+        self.init(auth: auth, onboarding: StubOnboardingRepository(), analytics: analytics)
+    }
+}

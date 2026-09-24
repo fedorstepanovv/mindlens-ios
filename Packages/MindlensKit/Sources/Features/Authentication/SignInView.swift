@@ -232,25 +232,29 @@ public struct SignInView: View {
 
 #if DEBUG
 #Preview("Signed out") {
-    SignInView(model: SessionModel(auth: PreviewAuthRepository()))
+    SignInView(model: SessionModel(auth: PreviewAuthRepository(), onboarding: PreviewOnboardingRepository()))
 }
 
 /// The pair of conditions that broke this screen the first time it was run.
 #Preview("Dark, largest text") {
-    SignInView(model: SessionModel(auth: PreviewAuthRepository()))
+    SignInView(model: SessionModel(auth: PreviewAuthRepository(), onboarding: PreviewOnboardingRepository()))
         .preferredColorScheme(.dark)
         .environment(\.dynamicTypeSize, .accessibility5)
 }
 
 #Preview("Signing in") {
-    let model = SessionModel(auth: PreviewAuthRepository(signIn: .hangs))
+    let model = SessionModel(
+        auth: PreviewAuthRepository(signIn: .hangs),
+        onboarding: PreviewOnboardingRepository()
+    )
     SignInView(model: model)
         .task { await model.signInWithGoogle() }
 }
 
 #Preview("Could not verify") {
     let model = SessionModel(
-        auth: PreviewAuthRepository(signIn: .fails(AppError(kind: .server(status: 422))))
+        auth: PreviewAuthRepository(signIn: .fails(AppError(kind: .server(status: 422)))),
+        onboarding: PreviewOnboardingRepository()
     )
     SignInView(model: model)
         .task { await model.signInWithGoogle() }

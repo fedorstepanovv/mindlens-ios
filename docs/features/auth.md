@@ -120,14 +120,15 @@ bare pair, single-use. `POST /auth/logout` → 204.
    and `OnboardingRepository` in `Models`, the API implementation in `Networking`. The server: `POST /baseline` twice
    is 409, `GET /goals` never 404s, `complete-onboarding` twice is 400 and not transactional — so check before posting.
    files: `Packages/MindlensKit/Sources/Features/Authentication/SessionModel.swift`,
-   `Packages/MindlensKit/Sources/TestSupport/ConstructedResponse.swift`, `docs/API.md`; `SurveyAnswers.swift`,
-   `OnboardingRepository.swift`, `APIOnboardingRepository.swift` *(new)*.
+   `Packages/MindlensKit/Sources/Networking/APIClient.swift`, `Packages/MindlensKit/Sources/TestSupport/ConstructedResponse.swift`,
+   `docs/API.md`; `SurveyAnswers.swift`, `OnboardingRepository.swift`, `OnboardingEndpoints.swift`, `APIOnboardingRepository.swift`.
    ready: tests show baseline → goals → complete-onboarding with the wire values for a new account and nothing for a
    returning one; an existing baseline or goal skips its POST; a failure keeps the sign-in page, and Retry posts only
    what is missing without the provider sheet; the account lands on `.onboarding` though its flag now reads true.
    Bodies are `ConstructedResponse`, cross-checked (ADR 0027).
 8. ⬜ **The survey pages** — intro, goal, feeling, hurdle ahead of `SignInView`, per Behaviour's Flows, Screens and Copy.
-   entries: `RootView`'s `.signedOut` case; `SignInView` becomes page 4 and hands step 7 its `SurveyAnswers`.
+   entries: `RootView`'s `.signedOut` case; `SignInView` becomes page 4, sets `SessionModel.answers`, and offers
+   `retryAnswers()` in place of the providers while `canRetryAnswers`.
    files: `Packages/MindlensKit/Sources/Features/Authentication/SignInView.swift`, `mindlens/RootView.swift`.
    ready: previews for every state in Screens; copy verbatim; Continue gated on goal and hurdle; run in the simulator
    light and dark, default and largest text.

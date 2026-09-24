@@ -92,6 +92,17 @@ struct APIClientTests {
         #expect(type(of: result) == NoContent.self)
     }
 
+    /// A handler that returns nothing still answers 201 with an envelope, and the envelope has no
+    /// `data` key at all — decoding `APIEnvelope<NoContent>` from it fails, so it is never tried.
+    @Test("a 201 whose envelope has no data reads as NoContent")
+    func createdWithNoData() async throws {
+        let (client, _) = makeClient(
+            session: StubURLProtocol.session(status: 201, body: ConstructedResponse.onboardingCompleted)
+        )
+        let result = try await client.send(Endpoint<NoContent>.completeOnboarding)
+        #expect(type(of: result) == NoContent.self)
+    }
+
     @Test("a body that does not match the contract surfaces as a decoding error")
     func surfacesDecodingFailure() async throws {
         let body = Data(#"{"data":{"nope":1},"success":true}"#.utf8)

@@ -133,9 +133,14 @@ with no `user` wrapper.
 | GET | `/users` | Current user row |
 | DELETE | `/users` | Delete account (204) |
 | PATCH | `/users/timezone` | Update timezone |
-| POST | `/users/complete-onboarding` | Mark onboarding done |
+| POST | `/users/complete-onboarding` | Mark onboarding done. No body. 201 with **no `data` key**. See below |
 | GET/POST/PATCH | `/profiles` | Read / create / update profile |
 | GET | `/sessions` | List active device sessions |
+
+`POST /users/complete-onboarding` returns 400 if onboarding is already complete. It also returns 400 if the account has
+no initial baseline or no goal. It is **not atomic**: it sets the flag first and then queues the onboarding-survey
+job. If the queueing fails, the response is 500 but the flag is already set. So read `GET /users` before sending
+it, never send it twice (`APIOnboardingRepository`).
 
 `POST /profiles`:
 ```json
@@ -219,9 +224,19 @@ alongside mood/sleep/steps aggregates.
 | Method | Path | Purpose |
 |---|---|---|
 | POST/GET/PATCH/DELETE | `/health/steps`, `/health/bpm`, `/health/sleep` | Health records; `source: "OS"\|"MANUAL"` |
-| GET/POST/DELETE | `/goals` | Goals |
-| POST | `/baseline`, GET `/baseline/latest` | Onboarding baseline (404 if none) |
+| GET/POST/DELETE | `/goals` | Goals. See below |
+| POST | `/baseline`, GET `/baseline/latest` | Onboarding baseline. See below |
 | GET/POST/PATCH/DELETE | `/notification-settings[/daily[/:id]]` | Reminder times, `"HH:mm"` |
+
+A new account posts both of these after sign-in, from the survey (`docs/features/auth.md`). The shapes are checked
+against Prisma and the source app's models, not captured (ADR 0027):
+- `GET /baseline/latest` → `{id, userId, motivationScore, anticipatedHurdle|null, isInitial, createdAt, updatedAt}`.
+  **404** if there is none.
+- `POST /baseline` `{motivationScore: 1–10, anticipatedHurdle: non-empty, ≤500}` → 201, the row. The hurdle is free
+  text, and the app sends the English label. **A second post is 409**, because `userId` is unique.
+- `GET /goals` → an array of `{id, title, userId, isActive, createdAt, updatedAt}`. An empty array, **never a 404**.
+- `POST /goals` `{titles: [3–100 chars]}` → 201 with only the rows it inserted. Titles the account already has are
+  skipped. The app sends a goal id such as `fix_sleep`, which the server's label map is keyed on.
 
 ## Subscriptions
 
