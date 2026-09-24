@@ -148,20 +148,37 @@ func TestSpecLaneReadsTheFeatureFileOffTheBranchName(t *testing.T) {
 
 func TestVerificationLaneNeedsATestTargetPerTouchedModule(t *testing.T) {
 	repo := t.TempDir()
-	in := Inputs{RepoDir: repo, Diff: swiftDiff(featureFile, "Packages/MindlensKit/Sources/Persistence/KeychainItem.swift")}
+	in := Inputs{RepoDir: repo, Diff: swiftDiff(featureFile, "Packages/MindlensKit/Sources/Networking/APIClient.swift")}
 
 	touch(t, repo, "Packages/MindlensKit/Tests/DashboardTests/DashboardModelTests.swift")
 	got := Check(Verification, in)
-	if got.OK() || len(got.Missing) != 1 || !strings.Contains(got.Missing[0], "PersistenceTests") {
-		t.Fatalf("Persistence has no test target and that must be named, got %+v", got)
+	if got.OK() || len(got.Missing) != 1 || !strings.Contains(got.Missing[0], "NetworkingTests") {
+		t.Fatalf("Networking has no test target and that must be named, got %+v", got)
 	}
 	if len(got.Present) != 1 || !strings.Contains(got.Present[0], "DashboardTests") {
 		t.Errorf("the target that is there should be listed as present, got %+v", got)
 	}
 
-	touch(t, repo, "Packages/MindlensKit/Tests/PersistenceTests/KeychainItemTests.swift")
+	touch(t, repo, "Packages/MindlensKit/Tests/NetworkingTests/APIClientTests.swift")
 	if got := Check(Verification, in); !got.OK() {
 		t.Errorf("both targets present, got %+v", got)
+	}
+}
+
+// The Keychain has no home in a package test bundle on the simulator, so Persistence is
+// tested hosted by the app (ADR 0026). A PersistenceTests directory would never exist.
+func TestVerificationLaneLooksForPersistenceInTheAppHostedBundle(t *testing.T) {
+	repo := t.TempDir()
+	in := Inputs{RepoDir: repo, Diff: swiftDiff("Packages/MindlensKit/Sources/Persistence/KeychainItem.swift")}
+
+	got := Check(Verification, in)
+	if got.OK() || len(got.Missing) != 1 || !strings.Contains(got.Missing[0], "mindlensTests") {
+		t.Fatalf("with mindlensTests empty, that is what is missing, got %+v", got)
+	}
+
+	touch(t, repo, "mindlensTests/KeychainTokenStorageTests.swift")
+	if got := Check(Verification, in); !got.OK() {
+		t.Errorf("mindlensTests holds Persistence's tests, got %+v", got)
 	}
 }
 

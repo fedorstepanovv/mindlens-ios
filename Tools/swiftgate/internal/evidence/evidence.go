@@ -105,6 +105,12 @@ func All(in Inputs) map[Lane]Result {
 
 const packageSources = "Packages/MindlensKit/Sources/"
 
+// hostedTests names the modules whose tests cannot live in the package. A package test
+// bundle has no Keychain on the simulator, so Persistence is tested in the app-hosted
+// bundle (ADR 0026). Asking for Packages/MindlensKit/Tests/PersistenceTests instead
+// switched the lane off on every Persistence change, including the one that added its tests.
+var hostedTests = map[string]string{"Persistence": "mindlensTests"}
+
 // verification needs production Swift in the diff and a test target, non-empty, for
 // each module that Swift lives in. Whether the target compiles is the build job's
 // business; that it exists and has tests in it is read off disk here.
@@ -120,7 +126,11 @@ func verification(in Inputs) Result {
 			targets[f.FeatureTarget()] = "Packages/MindlensKit/Tests/" + f.FeatureTarget() + "Tests"
 		case strings.HasPrefix(f.Path, packageSources):
 			module, _, _ := strings.Cut(strings.TrimPrefix(f.Path, packageSources), "/")
-			targets[module] = "Packages/MindlensKit/Tests/" + module + "Tests"
+			if dir, hosted := hostedTests[module]; hosted {
+				targets[module] = dir
+			} else {
+				targets[module] = "Packages/MindlensKit/Tests/" + module + "Tests"
+			}
 		case strings.HasPrefix(f.Path, "mindlens/"):
 			targets["mindlens"] = "mindlensUITests"
 		}

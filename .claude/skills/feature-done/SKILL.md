@@ -14,7 +14,7 @@ Report real output. A failing suite is never summarised as done.
 
 ## 2. Lint and format
 ```
-swift-format format --in-place --recursive Packages/MindlensKit/Sources Packages/MindlensKit/Tests mindlens
+swift-format format --in-place --recursive Packages/MindlensKit/Sources Packages/MindlensKit/Tests mindlens mindlensTests
 swiftlint lint --quiet
 ```
 Custom rules encode past mistakes (`docs/LESSONS.md`). If one fires, fix the code — do not

@@ -1,6 +1,6 @@
 # Authentication
 
-Status: 🟡 · Stage 1 in `docs/STATE.md` · Decisions: ADR 0004, 0005, 0010, 0024, 0025
+Status: 🟡 · Stage 1 in `docs/STATE.md` · Decisions: ADR 0004, 0005, 0010, 0024, 0025, 0026
 
 ## What the user can do
 
@@ -80,7 +80,7 @@ bare pair, single-use. `POST /auth/logout` → 204.
 - [ ] Concurrent 401s make exactly one `/auth/refresh` (a staggered test).
 - [x] The `/auth/apple` and `/auth/refresh` 200s are one cross-checked constructed body each, read by every test (ADR 0024).
 - [x] No `swiftgate:allow` names a rule that no longer exists.
-- [ ] Keychain paths run under a `Persistence` test target.
+- [x] The Keychain paths run under test, hosted by the app on the simulator (ADR 0026).
 
 ## Decisions — settled, do not reopen
 
@@ -113,7 +113,8 @@ bare pair, single-use. `POST /auth/logout` → 204.
 4. ✅ Google Sign-In through the same seam, run for real; the redirect scheme asserted against the bundled plist.
 5. ✅ The two auth responses are cross-checked, not captured: one `ConstructedResponse` feeds every test; dead waivers
    gone. The ready condition (live captures) was replaced by ADR 0024, not met.
-6. ⬜ `Persistence` test target for the Keychain paths, which have run for real but never under a test.
+6. ✅ The Keychain paths under test in `mindlensTests`, hosted by the app: a package bundle gets `-34018` on the
+   simulator (ADR 0026). 13 tests, and the gate runs them on every PR. They found a real `KeychainItem.write` bug.
 7. ⬜ **The survey** — pages 0–3 ahead of `SignInView` and a new account's answers posted after
    sign-in, per Behaviour. Shaped in full when it opens.
 
@@ -143,3 +144,5 @@ bare pair, single-use. `POST /auth/logout` → 204.
 - 2026-09-19 — First real Google sign-in landed on the signed-in stub. Step 4 ticked.
 - 2026-09-22 — Behaviour approved; the survey joins auth. The proxy capture failed (the simulator refused mitmproxy's CA), so
   step 5 cross-checks the two auth bodies against Prisma and the source app's production models instead (ADR 0024).
+- 2026-09-23 — Step 6. The package bundle has no Keychain on the simulator (`-34018`), so the tests are app-hosted (ADR 0026).
+  First run: `write` deleted by attributes, so an item under another accessibility class survived as a duplicate — a new GUID per launch.

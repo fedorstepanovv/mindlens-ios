@@ -46,7 +46,10 @@ struct KeychainItem: Sendable {
         attributes[kSecValueData as String] = data
         attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
 
-        SecItemDelete(attributes as CFDictionary)
+        // Delete by service + account alone. Deleting by `attributes` matched on the
+        // accessibility class too, so an item stored under another class survived, the add
+        // failed as a duplicate, and the old item was read back forever.
+        SecItemDelete(query as CFDictionary)
         let status = SecItemAdd(attributes as CFDictionary, nil)
         guard status == errSecSuccess else { throw KeychainError(status: status) }
     }
