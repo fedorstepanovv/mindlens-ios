@@ -10,6 +10,21 @@ progress log this project has produced before.
 ## [Unreleased]
 
 ### Added
+- **A new account's survey answers reach the server after sign-in** (auth step 7). `SessionModel` posts them
+  through `OnboardingRepository`: baseline, then goals, then completion. It checks before each write, because a second
+  baseline is a 409 and a second completion a 400, and completion is not atomic. A failure leaves the user on the
+  sign-in page with a retry that does not reopen the provider's sheet. The account then lands on onboarding, even though
+  its flag now reads complete. Until the survey pages exist (step 8) no answers are set, and sign-in behaves as before.
+- **ADR 0027:** a response the source app decodes in production is constructed in `ConstructedResponse` and
+  cross-checked against that model and Prisma, instead of being captured with a production token. `AGENTS.md`,
+  `docs/TESTING.md`, the fixtures README and three skills now say this.
+
+### Fixed
+- `APIClient` read a 201 whose envelope has no `data` key as a decoding error. `POST /users/complete-onboarding`
+  answers exactly that, so every new account would have failed at its last step. An endpoint that expects
+  `NoContent` now reads nothing from any 2xx.
+- PR #18's lane nits: the concurrent-GUID test has a time limit, and `KeychainProbe.plant` names its accessibility
+  class instead of relying on the Keychain's default.
 - **The Keychain paths under test**, in the app-hosted `mindlensTests`: token storage (round trip, rotation in one
   item, clear, the accessibility class read back) and the device GUID (persistence, concurrent callers, the 6–36
   bound, `forget`). A package test bundle has no Keychain on the simulator (`-34018`), so the app hosts them, and the

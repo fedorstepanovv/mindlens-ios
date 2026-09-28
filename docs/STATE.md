@@ -5,7 +5,7 @@
 **Rewritten in place, never appended to** — what stops being current moves to `CHANGELOG.md`; the server repo's
 equivalent reached 2,000 lines. **Hard cap: 80 lines**, enforced by `Tools/check-doc-links.py`: adding a line means removing one.
 
-Last updated: 2026-09-23
+Last updated: 2026-09-28
 
 ---
 
@@ -34,9 +34,9 @@ feature template has a human-approved `## Behaviour` section (ADR 0020); `docs/f
 
 ## Next action
 
-`feature/auth` step 7 is open: a new account's survey answers posted after sign-in, behind an `OnboardingRepository`.
-PR #18's three lane nits landed first on the branch. Response shapes are read from the source app's models and Prisma,
-not captured (ADR 0027), so no step needs a production token. Step 8, the survey pages, follows.
+`feature/auth` step 7 is done on its branch, not yet merged. A new account's survey answers are posted after sign-in,
+and a retry posts only what is missing. The shapes come from the source app's models and Prisma (ADR 0027).
+**Next: step 8, the survey pages** ahead of `SignInView`, which set `SessionModel.answers` and offer `retryAnswers()`.
 PR #1's two reviewer warnings (cancellation at the `APIClient` boundary, `RootView`'s placeholder copy) wait for a
 `bugfix/` branch. Blocked on nothing.
 
@@ -44,7 +44,7 @@ PR #1's two reviewer warnings (cancellation at the `APIClient` boundary, `RootVi
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Authentication | 🟡 | `docs/features/auth.md`. Apple and Google sign-in and restore work live. Behaviour approved; Keychain under test; the survey left. |
+| 1 | Authentication | 🟡 | `docs/features/auth.md`. Apple and Google sign-in and restore work live. Behaviour approved; answers posted after sign-in; the survey pages left. |
 | 2 | Dashboard + Quick Log | 🟡 | `DashboardModel` tested against a stub. No views, no real repository. |
 | 3 | Insights + Recaps | ⬜ | Swift Charts; polls for server-side generation. |
 | 4 | Onboarding + Paywall | ⬜ | Onboarding-status polling, insight reveal, RevenueCat. The pre-sign-in survey is auth's (step 7). |

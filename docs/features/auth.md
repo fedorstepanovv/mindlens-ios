@@ -115,17 +115,8 @@ bare pair, single-use. `POST /auth/logout` → 204.
    gone. The ready condition (live captures) was replaced by ADR 0024, not met.
 6. ✅ The Keychain paths under test in `mindlensTests`, hosted by the app: a package bundle gets `-34018` on the
    simulator (ADR 0026). 13 tests, and the gate runs them on every PR. They found a real `KeychainItem.write` bug.
-7. 🟡 **A new account's answers are posted after sign-in** — first, so no page ever asks for answers that go nowhere.
-   entries: `SessionModel`'s sign-in path once `authenticate()` returns `isOnboardingComplete == false`; `SurveyAnswers`
-   and `OnboardingRepository` in `Models`, the API implementation in `Networking`. The server: `POST /baseline` twice
-   is 409, `GET /goals` never 404s, `complete-onboarding` twice is 400 and not transactional — so check before posting.
-   files: `Packages/MindlensKit/Sources/Features/Authentication/SessionModel.swift`,
-   `Packages/MindlensKit/Sources/Networking/APIClient.swift`, `Packages/MindlensKit/Sources/TestSupport/ConstructedResponse.swift`,
-   `docs/API.md`; `SurveyAnswers.swift`, `OnboardingRepository.swift`, `OnboardingEndpoints.swift`, `APIOnboardingRepository.swift`.
-   ready: tests show baseline → goals → complete-onboarding with the wire values for a new account and nothing for a
-   returning one; an existing baseline or goal skips its POST; a failure keeps the sign-in page, and Retry posts only
-   what is missing without the provider sheet; the account lands on `.onboarding` though its flag now reads true.
-   Bodies are `ConstructedResponse`, cross-checked (ADR 0027).
+7. ✅ A new account's answers are posted after sign-in: baseline → goals → completion, each checked first, and a retry
+   that posts only what is missing without the provider's sheet. It lands on `.onboarding` (ADR 0027 for the shapes).
 8. ⬜ **The survey pages** — intro, goal, feeling, hurdle ahead of `SignInView`, per Behaviour's Flows, Screens and Copy.
    entries: `RootView`'s `.signedOut` case; `SignInView` becomes page 4, sets `SessionModel.answers`, and offers
    `retryAnswers()` in place of the providers while `canRetryAnswers`.
@@ -147,3 +138,5 @@ bare pair, single-use. `POST /auth/logout` → 204.
   First run: `write` deleted by attributes, so an item under another accessibility class survived as a duplicate — a new GUID per launch.
 - 2026-09-24 — Step 7 opened. PR #18's lane nits landed first. Response shapes come from the source app's models and
   Prisma, not a capture (ADR 0027). Survey split in two: posting (7), then the pages (8).
+- 2026-09-28 — Step 7. `complete-onboarding` answers 201 with no `data` key, which `APIClient` would have failed to
+  decode for every new account. Completion is also not atomic server-side (500 with the flag set), so it is read first.
