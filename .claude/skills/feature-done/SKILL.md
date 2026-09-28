@@ -22,8 +22,9 @@ disable the rule without a written reason.
 
 ## 3. The tests that must exist, do
 Per `docs/TESTING.md`: every new ViewModel covered for loading/success/failure/empty;
-every new API response type has a decoding test against a **captured** fixture
-(`Tools/capture-fixtures.sh`); any bug fixed here has a regression test tagged `.bug(...)`.
+every new API response type has a decoding test — against a `ConstructedResponse` body that names
+the source app's model and the Prisma model it was checked against, or against a capture where the source
+app never decodes it (ADR 0027); any bug fixed here has a regression test tagged `.bug(...)`.
 
 ## 4. Design rules hold
 Per `docs/DESIGN.md`: Dynamic Type, VoiceOver labels, light and dark, 44pt targets.

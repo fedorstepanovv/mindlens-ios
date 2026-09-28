@@ -5,7 +5,8 @@ import Models
 import Observation
 import os
 
-/// The whole session lifecycle: restore at launch, sign in, sign out.
+/// The whole session lifecycle: restore at launch, sign in (posting a new account's survey
+/// answers), sign out.
 ///
 /// **One model, not two.** A separate `SignInModel` beside this would split a single flow —
 /// tap, provider round trip, session established, gate changes — across two types that have
@@ -24,10 +25,20 @@ public final class SessionModel {
 
     public private(set) var error: AppError?
 
+    /// What the survey collected, handed over before sign-in. `nil` until the survey pages exist
+    /// (`docs/features/auth.md` step 8), and a new account with none lands on onboarding with
+    /// nothing posted, as every new account did before.
+    public var answers: SurveyAnswers?
+
+    /// A new account whose session is saved but whose answers did not all reach the server.
+    /// Held so a retry posts them without reopening the provider's sheet.
+    private var unsubmitted: (user: User, provider: SignInProvider)?
+
     /// Held between `appleRequestNonce()` and the credential coming back. Never leaves.
     private var appleNonce: SignInNonce?
 
     private let auth: any AuthRepository
+    private let onboarding: any OnboardingRepository
     private let analytics: any AnalyticsRecording
 
     /// Every failure that reaches `error` is logged with its diagnostic — the server's message
@@ -36,12 +47,21 @@ public final class SessionModel {
     /// a typo in the URL.
     private let log = Logger(category: "session")
 
-    public init(auth: any AuthRepository, analytics: any AnalyticsRecording = .noop) {
+    public init(
+        auth: any AuthRepository,
+        onboarding: any OnboardingRepository,
+        analytics: any AnalyticsRecording = .noop
+    ) {
         self.auth = auth
+        self.onboarding = onboarding
         self.analytics = analytics
     }
 
     public var isSigningIn: Bool { pending != nil }
+
+    /// Signed in, but the answers did not land. The sign-in page offers a retry instead of the
+    /// providers' buttons.
+    public var canRetryAnswers: Bool { unsubmitted != nil }
 
     /// A launch restore that failed for a reason that is **not** "your session ended".
     ///
@@ -130,10 +150,30 @@ public final class SessionModel {
         self.error = failed("Provider flow", error)
     }
 
+    /// Posts the answers again for the account that is already signed in. The provider's sheet
+    /// is not reopened: the session was saved the first time.
+    public func retryAnswers() async {
+        guard pending == nil, let unsubmitted else { return }
+
+        pending = unsubmitted.provider
+        error = nil
+        defer { pending = nil }
+
+        do {
+            try await enter(unsubmitted.user)
+        } catch is CancellationError {
+            // Cancelling is not a failure.
+        } catch {
+            self.error = failed("Posting survey answers", error)
+        }
+    }
+
     public func signOut() async {
         await auth.signOut()
         state = .signedOut
         error = nil
+        unsubmitted = nil
+        answers = nil
         analytics.record(AnalyticsEvent("sign_out"))
     }
 
@@ -149,12 +189,12 @@ public final class SessionModel {
 
         pending = provider
         error = nil
+        unsubmitted = nil
         defer { pending = nil }
 
         do {
             let user = try await authenticate()
-            state = SessionState(authenticated: user)
-            error = nil
+            unsubmitted = (user, provider)
 
             // One path serves sign-up and sign-in, and the server returns no "is new" flag —
             // so an incomplete onboarding stands in for a fresh account. It over-counts a
@@ -169,11 +209,31 @@ public final class SessionModel {
                     ]
                 )
             )
+
+            try await enter(user)
         } catch is CancellationError {
             // Cancelling is not a failure — the same rule as a cancelled load.
         } catch {
             self.error = failed("Sign in with \(provider.rawValue)", error)
         }
+    }
+
+    /// Through the gate, once whatever a new account owes the server has reached it.
+    ///
+    /// A returning account goes straight through, and its answers are discarded. A new one posts
+    /// its answers first; until they land it stays on the sign-in page. Once they have, it goes to
+    /// `.onboarding` even though the server's flag now reads complete: the flag says the answers
+    /// are in, while the account still has onboarding's reveal and paywall (Stage 4) ahead.
+    private func enter(_ user: User) async throws {
+        if !user.isOnboardingComplete, let answers {
+            try await onboarding.submit(answers)
+            state = .onboarding(user)
+        } else {
+            state = SessionState(authenticated: user)
+        }
+        unsubmitted = nil
+        answers = nil
+        error = nil
     }
 
     /// Maps and logs in one step so no site can do one without the other. The diagnostic is

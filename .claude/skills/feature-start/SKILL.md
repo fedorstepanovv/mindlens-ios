@@ -49,9 +49,10 @@ the work.
 - **Does this screen have real presentation state?** If not, bind the view to its model and
   **do not manufacture a ViewModel.** One per screen reads as translated Flutter.
 - **Which external services?** Each sits behind a protocol we own — ADR 0005.
-- **What does the API actually return?** Capture real fixtures now with
-  `Tools/capture-fixtures.sh`, before writing decoding tests against a guess. There is no
-  OpenAPI spec; the fixtures are the only contract guard.
+- **What does the API actually return?** Read it now, before writing decoding tests against a
+  guess: the source app's model for the response and the server's Prisma model, then one
+  `ConstructedResponse` body that names both (ADR 0027). Capture only what the source app never
+  decodes, and error envelopes. There is no OpenAPI spec; these are the only contract guard.
 
 ## 7. Say what you are about to build
 In a few lines: the target, the types, the endpoints, what you are deliberately leaving

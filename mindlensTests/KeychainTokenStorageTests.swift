@@ -73,7 +73,7 @@ struct KeychainTokenStorageTests {
     )
     func saveReplacesItemUnderAnotherClass() async throws {
         defer { probe.remove() }
-        try probe.plant(Data("written by an older build".utf8))
+        try probe.plant(Data("written by an older build".utf8), accessibility: kSecAttrAccessibleWhenUnlocked)
 
         try await storage.save(TokenPair(access: "access", refresh: "refresh"))
 
@@ -88,7 +88,8 @@ struct KeychainTokenStorageTests {
     @Test("an item that is not a stored pair throws, rather than loading as signed out")
     func unreadableItemThrows() async throws {
         defer { probe.remove() }
-        try probe.plant(Data("not json".utf8))
+        try probe.plant(
+            Data("not json".utf8), accessibility: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
 
         await #expect(throws: DecodingError.self) { try await storage.load() }
     }

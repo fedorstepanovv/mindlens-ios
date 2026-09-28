@@ -35,10 +35,12 @@ the hard case" section are the two you will cite most.
    `signOutDuringRefreshDiscardsResult` never called the transport and passed against two real
    bugs. The interleaving must be *made*: `GatedRefreshTransport` holds a call open, the test
    acts, then lets it land. Anything less is a warning at least.
-3. **Fixtures typed rather than captured.** Every API response type decodes against a
-   captured JSON fixture under `Sources/TestSupport/Fixtures/`. An inline body asserts what we
-   hoped the server does. An inline body is tolerable only with a `// swiftgate:allow` waiver
-   naming why it cannot be captured — and then the feature file must carry the capture step.
+3. **Fixtures typed rather than sourced.** Every API response type decodes against either a
+   `ConstructedResponse` body whose comment names the source app's model and the Prisma model it
+   was checked against — and every key either requires is present — or a captured file under
+   `Sources/TestSupport/Fixtures/` (ADR 0024, 0027). Error envelopes and responses the source app
+   never decodes must be captured. An inline body in a test, or a constructed one that names no
+   sources, asserts what we hoped the server does.
 4. **Tests removed, disabled, filtered or weakened.** A deleted test, `.disabled`, a
    narrowed `-only-testing`, a `#expect` that compares two distinct enum cases and so cannot
    fail. Each needs a stated reason in the PR; absent one, it blocks.

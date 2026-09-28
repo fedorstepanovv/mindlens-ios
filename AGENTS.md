@@ -85,9 +85,10 @@ every interactive element, light and dark both correct. Rules: `docs/DESIGN.md`.
 
 Swift Testing (`@Test`/`#expect`) for units; XCTest only where XCUITest requires it. Required before a feature is done:
 - Every ViewModel has tests.
-- Every API response type has a decoding test against a real captured JSON fixture — except the two
-  auth responses nobody can capture, which are constructed and cross-checked (ADR 0024).
-  There is no OpenAPI spec — these fixtures are the only contract guard we have.
+- Every API response type has a decoding test. A response the source app decodes in production is
+  constructed in `ConstructedResponse` and cross-checked against its model and Prisma (ADR 0024, 0027);
+  one it never decodes, and every error envelope, is a real capture. There is no OpenAPI spec — these
+  are the only contract guard we have.
 - Every bug fix ships with a regression test named for the bug.
 
 No test touches the network. Fakes live in `TestSupport`. Details: `docs/TESTING.md`.

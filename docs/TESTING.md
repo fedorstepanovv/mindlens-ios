@@ -13,9 +13,10 @@ use `xcodebuild -destination 'platform=iOS Simulator,…'` before committing.
 A feature is not done without these:
 
 1. **Every ViewModel** — loading, success, failure, empty.
-2. **Every API response type, against a real captured fixture.** There is no OpenAPI spec.
-   These are the only contract guard. Refresh them with `Tools/capture-fixtures.sh`. The two auth
-   responses nobody can capture are constructed and cross-checked instead (`ConstructedResponse`, ADR 0024).
+2. **Every API response type, against its contract.** There is no OpenAPI spec; these are the only
+   contract guard. A response the source app decodes in production is one body in `ConstructedResponse`,
+   cross-checked against that model and the Prisma schema, both named in its comment (ADR 0024, 0027).
+   Error envelopes and responses the source app never decodes are captured: `Tools/capture-fixtures.sh`.
 3. **The token refresher, under concurrency** — and not just the easy case. See below.
 4. **Date and timezone logic** — local-day boundaries, a user whose timezone differs from
    the device's, DST transitions.

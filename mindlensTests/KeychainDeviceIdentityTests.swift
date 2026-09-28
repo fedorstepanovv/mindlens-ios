@@ -25,7 +25,7 @@ struct KeychainDeviceIdentityTests {
         #expect(UUID(uuidString: first) != nil)
     }
 
-    @Test("concurrent sign-in taps on one install share one GUID")
+    @Test("concurrent sign-in taps on one install share one GUID", .timeLimit(.minutes(1)))
     func concurrentCallersShareOne() async throws {
         defer { probe.remove() }
         let shared = identity()
@@ -49,7 +49,7 @@ struct KeychainDeviceIdentityTests {
     )
     func invalidStoredGUIDIsReplaced(stored: String) async throws {
         defer { probe.remove() }
-        try probe.plant(Data(stored.utf8))
+        try probe.plant(Data(stored.utf8), accessibility: kSecAttrAccessibleWhenUnlocked)
 
         let guid = await identity().guid()
 
@@ -61,7 +61,8 @@ struct KeychainDeviceIdentityTests {
     @Test("a stored GUID the API accepts is reused as it is")
     func validStoredGUIDIsReused() async throws {
         defer { probe.remove() }
-        try probe.plant(Data("stored-guid".utf8))
+        try probe.plant(
+            Data("stored-guid".utf8), accessibility: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
 
         #expect(await identity().guid() == "stored-guid")
     }

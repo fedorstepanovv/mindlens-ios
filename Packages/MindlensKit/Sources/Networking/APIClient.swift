@@ -1,7 +1,7 @@
 import Core
 import Foundation
 
-/// Returned by endpoints that answer 204.
+/// Returned by endpoints whose response carries nothing to read: a 204, or a 201 with no `data`.
 public struct NoContent: Decodable, Sendable {
     public init() {}
 }
@@ -97,7 +97,9 @@ public final class APIClient: Sendable {
             throw failure(from: data, status: response.statusCode)
         }
 
-        if data.isEmpty || response.statusCode == 204, let empty = NoContent() as? Response {
+        // An endpoint that expects nothing reads nothing. A 204 has no body, but a handler that
+        // returns nothing under a 201 still sends an envelope, just with no `data` key in it.
+        if let empty = NoContent() as? Response {
             return empty
         }
 
